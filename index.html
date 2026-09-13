@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+      .container { max-width: 1000px; margin: 0 auto; }
+
+      .header-top { display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 20px; }
+      .header-top h1 { margin: 0; color: #2c3e50; }
+      .form-btn { position: absolute; right: 0; background-color: #27ae60; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
+      .form-btn:hover { background-color: #2ecc71; transform: translateY(-1px); }
+
+      .header-controls { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+      .filter-group { display: flex; align-items: center; gap: 8px; }
+      select { padding: 8px 12px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; background-color: #fcfcfc; max-width: 100%; }
+
+      .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .card h2 { margin-top: 0; font-size: 1.2em; border-bottom: 2px solid #3498db; padding-bottom: 5px; color: #2980b9; }
+
+      .summary-cards { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+      .summary-box { flex: 1; min-width: 200px; background: #fff; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .summary-box h3 { margin: 0 0 10px 0; color: #555; font-size: 1.1em; }
+      .amount-income { font-size: 2em; font-weight: bold; color: #27ae60; }
+      .amount-expense { font-size: 2em; font-weight: bold; color: #e74c3c; }
+      .amount-balance { font-size: 2em; font-weight: bold; color: #2980b9; }
+
+      .charts-container { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+      .chart-box { flex: 1; min-width: 200px; background: #fff; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+      .chart-box h3 { margin-top: 0; font-size: 1em; color: #555; }
+      .canvas-container { position: relative; height: 200px; width: 100%; }
+
+      /* テーブルと明細スクロール用のスタイル */
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+      th { background-color: #f9f9f9; color: #555; }
+      .text-right { text-align: right; }
+      .row-income { background-color: #eafaf1; }
+
+      .history-table-wrapper {
+        max-height: 500px;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch; /* スマホでのスクロールを滑らかに */
+      }
+      .history-table-wrapper table {
+        min-width: 600px; /* ここで最小幅を指定し横スクロールさせる */
+      }
+      .history-table-wrapper th, .history-table-wrapper td {
+        white-space: nowrap; /* 文字の折り返しを禁止 */
+      }
+      .history-table-wrapper td.col-detail {
+        white-space: normal; /* 内容列のみ長文を考慮して折り返しを許可 */
+        min-width: 150px;
+      }
+
+      .loading { text-align: center; font-size: 1.2em; color: #7f8c8d; padding: 40px; }
+
+      /* スマホ向けメディアクエリ */
+      @media (max-width: 600px) {
+        body { padding: 10px; }
+        .header-top { flex-direction: column; gap: 15px; }
+        .form-btn { position: static; width: 100%; justify-content: center; box-sizing: border-box; }
+        .card { padding: 15px; }
+        .summary-cards { gap: 10px; }
+        .summary-box { min-width: 130px; padding: 15px 10px; }
+        .amount-income, .amount-expense, .amount-balance { font-size: 1.4em; }
+        .charts-container { gap: 10px; }
+        .header-controls { padding: 10px; gap: 10px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+
+      <div class="header-top">
+        <h1>家計簿レポート</h1>
+        <a href="https://forms.gle/yAV4pQMiX8zJ9vHm9" target="_blank" class="form-btn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
+            <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+            <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
+          </svg>
+          入力フォーム
+        </a>
+      </div>
+
+      <div id="loading" class="loading">データを読み込んでいます...</div>
+
+      <div id="report-content" style="display: none;">
+
+        <div class="header-controls">
+          <div class="filter-group">
+            <label for="month-select">表示月:</label>
+            <select id="month-select" onchange="updateReport()"></select>
+          </div>
+          <div class="filter-group">
+            <label for="payment-select">支払い方法:</label>
+            <select id="payment-select" onchange="updateReport()">
+              <option value="all">すべて</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="payer-select">支払い者:</label>
+            <select id="payer-select" onchange="updateReport()">
+              <option value="all">すべて</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="user-select">利用者:</label>
+            <select id="user-select" onchange="updateReport()">
+              <option value="all">すべて</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="summary-cards">
+          <div class="summary-box">
+            <h3>収入</h3>
+            <div id="total-income" class="amount-income">¥0</div>
+          </div>
+          <div class="summary-box">
+            <h3>支出</h3>
+            <div id="total-expense" class="amount-expense">¥0</div>
+          </div>
+          <div class="summary-box" style="border: 2px solid #3498db;">
+            <h3>収支（残高）</h3>
+            <div id="total-balance" class="amount-balance">¥0</div>
+          </div>
+        </div>
+
+        <div class="charts-container">
+          <div class="chart-box">
+            <h3>費目別</h3>
+            <div class="canvas-container"><canvas id="categoryChart"></canvas></div>
+          </div>
+          <div class="chart-box">
+            <h3>支払い方法</h3>
+            <div class="canvas-container"><canvas id="paymentChart"></canvas></div>
+          </div>
+          <div class="chart-box">
+            <h3>支払い者</h3>
+            <div class="canvas-container"><canvas id="payerChart"></canvas></div>
+          </div>
+          <div class="chart-box">
+            <h3>利用者</h3>
+            <div class="canvas-container"><canvas id="userChart"></canvas></div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+          <div class="card" style="flex: 1; min-width: 250px;">
+            <h2>費目別 詳細</h2>
+            <table id="category-table"><tbody></tbody></table>
+          </div>
+          <div class="card" style="flex: 1; min-width: 250px;">
+            <h2>決済・人物別 詳細</h2>
+            <h3 style="font-size:1em; margin-bottom:5px;">支払い方法</h3>
+            <table id="payment-table" style="margin-bottom: 15px;"><tbody></tbody></table>
+            <h3 style="font-size:1em; margin-bottom:5px;">支払い者</h3>
+            <table id="payer-table" style="margin-bottom: 15px;"><tbody></tbody></table>
+            <h3 style="font-size:1em; margin-bottom:5px;">利用者</h3>
+            <table id="user-table"><tbody></tbody></table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>利用明細</h2>
+          <div class="history-table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>日付</th>
+                  <th>区分/費目</th>
+                  <th>内容</th>
+                  <th>決済・人物</th>
+                  <th class="text-right">金額</th>
+                </tr>
+              </thead>
+              <tbody id="history-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let allData = [];
+      let chartInstances = { category: null, payment: null, payer: null, user: null };
+      const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#8AC926', '#1982C4', '#6A4C93'];
+
+      window.onload = function() {
+        google.script.run.withSuccessHandler(initializeData).getReportData();
+      };
+
+      function initializeData(data) {
+        allData = data;
+
+        const months = [...new Set(allData.map(d => d['年月']))].filter(m => m !== '不明').sort().reverse();
+        const monthSelect = document.getElementById('month-select');
+        months.forEach(month => {
+          let option = document.createElement('option');
+          option.value = month;
+          option.text = month.replace('-', '年') + '月';
+          monthSelect.appendChild(option);
+        });
+
+        const payments = [...new Set(allData.map(d => d['支払い方法']))]
+          .filter(p => p && p.trim() !== '' && p !== '収入').sort();
+        const paymentSelect = document.getElementById('payment-select');
+        payments.forEach(pay => { paymentSelect.appendChild(new Option(pay, pay)); });
+
+        const payers = [...new Set(allData.map(d => d['支払い者'] || d['使用者']))]
+          .filter(p => p && p.trim() !== '' && p !== '収入').sort();
+        const payerSelect = document.getElementById('payer-select');
+        payers.forEach(payer => { payerSelect.appendChild(new Option(payer, payer)); });
+
+        const users = [...new Set(allData.map(d => d['利用者'] || d['使用者']))]
+          .filter(u => u && u.trim() !== '' && u !== '収入').sort();
+        const userSelect = document.getElementById('user-select');
+        users.forEach(user => { userSelect.appendChild(new Option(user, user)); });
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('report-content').style.display = 'block';
+
+        if (months.length > 0) { updateReport(); }
+      }
+
+      function updateReport() {
+        const selectedMonth = document.getElementById('month-select').value;
+        const selectedPay = document.getElementById('payment-select').value;
+        const selectedPayer = document.getElementById('payer-select').value;
+        const selectedUser = document.getElementById('user-select').value;
+
+        let targetData = allData.filter(d => d['年月'] === selectedMonth);
+
+        if (selectedPay !== 'all') {
+          targetData = targetData.filter(d => d['支払い方法'] === selectedPay);
+        }
+        if (selectedPayer !== 'all') {
+          targetData = targetData.filter(d => (d['支払い者'] || d['使用者']) === selectedPayer);
+        }
+        if (selectedUser !== 'all') {
+          targetData = targetData.filter(d => (d['利用者'] || d['使用者']) === selectedUser);
+        }
+
+        let totalIncome = 0;
+        let totalExpense = 0;
+        let categories = {};
+        let payments = {};
+        let payers = {};
+        let users = {};
+
+        targetData.forEach(row => {
+          let amount = Number(row['金額']) || 0;
+          let isIncome = false;
+
+          if (row['収支'] === '収入' || row['収支区分'] === '収入' || row['種類'] === '収入') {
+            isIncome = true;
+          } else if (row['費目'] && (row['費目'].includes('収入') || row['費目'].includes('給与') || row['費目'].includes('賞与'))) {
+            isIncome = true;
+          }
+
+          if (isIncome) {
+            totalIncome += amount;
+          } else {
+            totalExpense += amount;
+
+            let cat = row['費目'] || 'その他';
+            categories[cat] = (categories[cat] || 0) + amount;
+
+            let pay = row['支払い方法'] || '不明';
+            if (pay !== '収入') payments[pay] = (payments[pay] || 0) + amount;
+
+            let payer = row['支払い者'] || row['使用者'] || '不明';
+            if (payer !== '収入') payers[payer] = (payers[payer] || 0) + amount;
+
+            let user = row['利用者'] || row['使用者'] || '不明';
+            if (user !== '収入') users[user] = (users[user] || 0) + amount;
+          }
+        });
+
+        let balance = totalIncome - totalExpense;
+        document.getElementById('total-income').innerText = '¥' + totalIncome.toLocaleString();
+        document.getElementById('total-expense').innerText = '¥' + totalExpense.toLocaleString();
+
+        let balanceEl = document.getElementById('total-balance');
+        balanceEl.innerText = (balance >= 0 ? '+' : '') + '¥' + balance.toLocaleString();
+        balanceEl.style.color = balance >= 0 ? '#2980b9' : '#e74c3c';
+
+        renderTable('category-table', categories);
+        renderTable('payment-table', payments);
+        renderTable('payer-table', payers);
+        renderTable('user-table', users);
+
+        drawChart('categoryChart', categories, 'category');
+        drawChart('paymentChart', payments, 'payment');
+        drawChart('payerChart', payers, 'payer');
+        drawChart('userChart', users, 'user');
+
+        targetData.sort((a, b) => new Date(b['日付']) - new Date(a['日付']));
+        const historyTbody = document.getElementById('history-table');
+        historyTbody.innerHTML = '';
+
+        if(targetData.length === 0){
+           historyTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">該当するデータがありません</td></tr>';
+        }
+
+        targetData.forEach(row => {
+          let isIncome = (row['収支'] === '収入' || row['収支区分'] === '収入' || row['種類'] === '収入') ||
+                         (row['費目'] && (row['費目'].includes('収入') || row['費目'].includes('給与')));
+
+          let tr = document.createElement('tr');
+          if (isIncome) tr.className = 'row-income';
+
+          let typeStr = row['収支'] || row['収支区分'] ? `[${row['収支'] || row['収支区分']}]<br>${row['費目']}` : row['費目'];
+          let dispPayer = row['支払い者'] || row['使用者'] || '-';
+          let dispUser = row['利用者'] || row['使用者'] || '-';
+
+          // 「内容・詳細」列には col-detail クラスを付与
+          tr.innerHTML = `
+            <td>${row['表示用日付']}</td>
+            <td><span style="font-size:0.9em;">${typeStr}</span></td>
+            <td class="col-detail">${row['内容・詳細'] || ''}</td>
+            <td><span style="font-size:0.8em; color:#666;">決: ${row['支払い方法'] || '-'}<br>払: ${dispPayer}<br>用: ${dispUser}</span></td>
+            <td class="text-right" style="${isIncome ? 'color:#27ae60; font-weight:bold;' : ''}">
+              ${isIncome ? '+' : ''}¥${Number(row['金額']).toLocaleString()}
+            </td>
+          `;
+          historyTbody.appendChild(tr);
+        });
+      }
+
+      function renderTable(tableId, dataObj) {
+        const tbody = document.querySelector(`#${tableId} tbody`);
+        tbody.innerHTML = '';
+        const sortedArray = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
+
+        sortedArray.forEach(([key, value]) => {
+          let tr = document.createElement('tr');
+          tr.innerHTML = `<td>${key}</td><td class="text-right">¥${value.toLocaleString()}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function drawChart(canvasId, dataObj, chartType) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        if (chartInstances[chartType]) chartInstances[chartType].destroy();
+
+        const sortedArray = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
+
+        if (sortedArray.length === 0) {
+           chartInstances[chartType] = null;
+           return;
+        }
+
+        const labels = sortedArray.map(item => item[0]);
+        const data = sortedArray.map(item => item[1]);
+
+        chartInstances[chartType] = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{ data: data, backgroundColor: colors.slice(0, labels.length), borderWidth: 1 }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    let label = context.label || '';
+                    let value = context.raw || 0;
+                    let total = context.chart._metasets[context.datasetIndex].total;
+                    let percentage = total > 0 ? Math.round((value / total) * 100) + '%' : '0%';
+                    return `${label ? label + ': ' : ''}¥${value.toLocaleString()} (${percentage})`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
