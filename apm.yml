@@ -1,0 +1,18 @@
+name: account_book_gas
+version: 1.0.0
+description: APM project for account_book_gas
+author: Laplusdestiny
+# Which agent platforms to deploy to.
+# Resolution order: --target flag > this field > auto-detect from filesystem.
+# Accepted values: agent-skills, antigravity, claude, codex, copilot, cursor, gemini, grok-build, hermes, kiro, opencode, vscode, windsurf
+targets:
+  - claude
+dependencies:
+  apm:
+    - git: anthropics/skills
+      skills:
+        - frontend-design
+    - Laplusdestiny/agent-skills
+  mcp: []
+includes: auto
+scripts: {}

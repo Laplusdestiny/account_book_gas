@@ -1,0 +1,246 @@
+lockfile_version: '1'
+apm_version: 0.30.0
+dependencies:
+- repo_url: anthropics/skills
+  name: f2db8404c222e36c8e02f933c816d92cbef85613dfa47bc8a4656a776a601059
+  host: github.com
+  resolved_commit: 34040c9c568585f6929bedeaad110ad08f079624
+  version: 34040c9
+  package_type: skill_bundle
+  deployed_files:
+  - .claude/skills/frontend-design
+  - .claude/skills/frontend-design/LICENSE.txt
+  - .claude/skills/frontend-design/SKILL.md
+  deployed_file_hashes:
+    .claude/skills/frontend-design/LICENSE.txt: sha256:0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594
+    .claude/skills/frontend-design/SKILL.md: sha256:d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3
+  content_hash: sha256:2936537b65c288dc158a43ff57577c69b24e05d06f7800f4dfd09081e03058f7
+  skill_subset:
+  - frontend-design
+- repo_url: laplusdestiny/agent-skills
+  materialization_repo_url: Laplusdestiny/agent-skills
+  name: agent-skills
+  host: github.com
+  resolved_commit: 435baf6d0fdc4e30fa8dcd9ecdc4c17cc38eb864
+  version: 1.0.0
+  package_type: apm_package
+  deployed_files:
+  - .claude/skills/git-operations
+  - .claude/skills/git-operations/SKILL.md
+  - .claude/skills/vercel-cli
+  - .claude/skills/vercel-cli/SKILL.md
+  deployed_file_hashes:
+    .claude/skills/git-operations/SKILL.md: sha256:2418ada39452a99d8ecd5f863ad584b377199dd6eefb7cc43d7c0c3a7292d6c0
+    .claude/skills/vercel-cli/SKILL.md: sha256:0326b437cdc8995822a1cc1920bab8de0caaa2cf010f3b664d118208543e9a54
+  content_hash: sha256:b1c717b85e537ca86006ab7855de0317ac8e522825333d8d7bfb8e2fda2cc6ae
+- repo_url: jamesprial/github-skills
+  name: github-skills
+  host: github.com
+  resolved_commit: e7a08a4d27b0f1bf682e0484459a89151388388b
+  version: 1.0.0
+  depth: 2
+  resolved_by: Laplusdestiny/agent-skills
+  package_type: skill_bundle
+  deployed_files:
+  - .claude/skills/gh-cli
+  - .claude/skills/gh-cli/SKILL.md
+  - .claude/skills/gh-cli/references/README_gh_code_search.md
+  - .claude/skills/gh-cli/references/README_gh_failed_run.md
+  - .claude/skills/gh-cli/references/README_pages.md
+  - .claude/skills/gh-cli/scripts/gh_code_search.py
+  - .claude/skills/gh-cli/scripts/gh_failed_run.py
+  - .claude/skills/gh-cli/scripts/gh_pages_deploy.py
+  deployed_file_hashes:
+    .claude/skills/gh-cli/SKILL.md: sha256:8da0ac2363bfccb4cf768c60f8efe565c024bf2ee91c8a7276f5bb6436eaa2c9
+    .claude/skills/gh-cli/references/README_gh_code_search.md: sha256:0aaf0ebf8851cb4f557186e624ff1677fa37fa299247d3d276b52f58dc3a1fb0
+    .claude/skills/gh-cli/references/README_gh_failed_run.md: sha256:2d53d92e616c4f2ba6fa5a5dda675f89626b8e73787604c880d10f5e20cb113e
+    .claude/skills/gh-cli/references/README_pages.md: sha256:e27fab2e71a6b28d14d1fba13b79e1c7b02a7b463fcb30c91bd8101da071bbdb
+    .claude/skills/gh-cli/scripts/gh_code_search.py: sha256:365e22c21592fb2e75faaca5c6cae276e13673c6555fe7e8712c29c67968355b
+    .claude/skills/gh-cli/scripts/gh_failed_run.py: sha256:c543bfcc4d0fb8325c055337aac9672b87bd03577259424b5a9962d689ce9d0b
+    .claude/skills/gh-cli/scripts/gh_pages_deploy.py: sha256:20f8d4b208629fca5353273141bd79187157efa8f41f38fa4138d542c8a34d32
+  content_hash: sha256:3bb263489d1f78847e585575359fae6475350b12003cebc2cf84045f9eb79af1
+  skill_subset:
+  - gh-cli
+  declared_license: MIT
+- repo_url: mattpocock/skills
+  name: mattpocock-skills
+  host: github.com
+  resolved_commit: 3cca18b368ae95cdbdebbff572ccafa662551015
+  version: 1.2.3
+  depth: 2
+  resolved_by: Laplusdestiny/agent-skills
+  package_type: apm_package
+  deployed_files:
+  - .claude/skills/grill-me
+  - .claude/skills/grill-me/SKILL.md
+  - .claude/skills/grill-me/agents/openai.yaml
+  deployed_file_hashes:
+    .claude/skills/grill-me/SKILL.md: sha256:caaf8b8de1684f96e26b28f3c29189db5c89cce4b73e1c93d86164f66ef88637
+    .claude/skills/grill-me/agents/openai.yaml: sha256:c061e39c3e0f9d865fb1b97556d485704af2a8a58f4b8221a8917a5c2074a32b
+  content_hash: sha256:c65bbfc43f4c9799c26575fb8fca4a82834feba5a49da423f610650be3603383
+  skill_subset:
+  - grill-me
+  declared_license: MIT
+deployments:
+- kind: project-relative
+  target: claude
+  value: .claude/skills/frontend-design
+  runtime: null
+  scope: project
+  owners:
+  - anthropics/skills
+  active_owner: anthropics/skills
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/frontend-design/LICENSE.txt
+  runtime: null
+  scope: project
+  owners:
+  - anthropics/skills
+  active_owner: anthropics/skills
+  content_hash: sha256:0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594
+- kind: project-relative
+  target: claude
+  value: .claude/skills/frontend-design/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - anthropics/skills
+  active_owner: anthropics/skills
+  content_hash: sha256:d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gh-cli
+  runtime: null
+  scope: project
+  owners:
+  - jamesprial/github-skills
+  active_owner: jamesprial/github-skills
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gh-cli/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - jamesprial/github-skills
+  active_owner: jamesprial/github-skills
+  content_hash: sha256:8da0ac2363bfccb4cf768c60f8efe565c024bf2ee91c8a7276f5bb6436eaa2c9
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gh-cli/references/README_gh_code_search.md
+  runtime: null
+  scope: project
+  owners:
+  - jamesprial/github-skills
+  active_owner: jamesprial/github-skills
+  content_hash: sha256:0aaf0ebf8851cb4f557186e624ff1677fa37fa299247d3d276b52f58dc3a1fb0
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gh-cli/references/README_gh_failed_run.md
+  runtime: null
+  scope: project
+  owners:
+  - jamesprial/github-skills
+  active_owner: jamesprial/github-skills
+  content_hash: sha256:2d53d92e616c4f2ba6fa5a5dda675f89626b8e73787604c880d10f5e20cb113e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gh-cli/references/README_pages.md
+  runtime: null
+  scope: project
+  owners:
+  - jamesprial/github-skills
+  active_owner: jamesprial/github-skills
+  content_hash: sha256:e27fab2e71a6b28d14d1fba13b79e1c7b02a7b463fcb30c91bd8101da071bbdb
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gh-cli/scripts/gh_code_search.py
+  runtime: null
+  scope: project
+  owners:
+  - jamesprial/github-skills
+  active_owner: jamesprial/github-skills
+  content_hash: sha256:365e22c21592fb2e75faaca5c6cae276e13673c6555fe7e8712c29c67968355b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gh-cli/scripts/gh_failed_run.py
+  runtime: null
+  scope: project
+  owners:
+  - jamesprial/github-skills
+  active_owner: jamesprial/github-skills
+  content_hash: sha256:c543bfcc4d0fb8325c055337aac9672b87bd03577259424b5a9962d689ce9d0b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gh-cli/scripts/gh_pages_deploy.py
+  runtime: null
+  scope: project
+  owners:
+  - jamesprial/github-skills
+  active_owner: jamesprial/github-skills
+  content_hash: sha256:20f8d4b208629fca5353273141bd79187157efa8f41f38fa4138d542c8a34d32
+- kind: project-relative
+  target: claude
+  value: .claude/skills/git-operations
+  runtime: null
+  scope: project
+  owners:
+  - laplusdestiny/agent-skills
+  active_owner: laplusdestiny/agent-skills
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/git-operations/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - laplusdestiny/agent-skills
+  active_owner: laplusdestiny/agent-skills
+  content_hash: sha256:2418ada39452a99d8ecd5f863ad584b377199dd6eefb7cc43d7c0c3a7292d6c0
+- kind: project-relative
+  target: claude
+  value: .claude/skills/grill-me
+  runtime: null
+  scope: project
+  owners:
+  - mattpocock/skills
+  active_owner: mattpocock/skills
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/grill-me/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mattpocock/skills
+  active_owner: mattpocock/skills
+  content_hash: sha256:caaf8b8de1684f96e26b28f3c29189db5c89cce4b73e1c93d86164f66ef88637
+- kind: project-relative
+  target: claude
+  value: .claude/skills/grill-me/agents/openai.yaml
+  runtime: null
+  scope: project
+  owners:
+  - mattpocock/skills
+  active_owner: mattpocock/skills
+  content_hash: sha256:c061e39c3e0f9d865fb1b97556d485704af2a8a58f4b8221a8917a5c2074a32b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/vercel-cli
+  runtime: null
+  scope: project
+  owners:
+  - laplusdestiny/agent-skills
+  active_owner: laplusdestiny/agent-skills
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/vercel-cli/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - laplusdestiny/agent-skills
+  active_owner: laplusdestiny/agent-skills
+  content_hash: sha256:0326b437cdc8995822a1cc1920bab8de0caaa2cf010f3b664d118208543e9a54
