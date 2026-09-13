@@ -1,6 +1,8 @@
 function doGet() {
-  return HtmlService.createTemplateFromFile('index')
-    .evaluate()
+  const template = HtmlService.createTemplateFromFile('index');
+  // フォームURLをリポジトリに書かず、GASのScript Propertiesから読み込む
+  template.formUrl = PropertiesService.getScriptProperties().getProperty('FORM_URL') || '';
+  return template.evaluate()
     .setTitle('家計簿レポート')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
