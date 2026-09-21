@@ -2,79 +2,20 @@
 <html>
   <head>
     <base target="_top">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-      body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
-      .container { max-width: 1000px; margin: 0 auto; }
-
-      .header-top { display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 20px; }
-      .header-top h1 { margin: 0; color: #2c3e50; }
-      .form-btn { position: absolute; right: 0; background-color: #27ae60; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
-      .form-btn:hover { background-color: #2ecc71; transform: translateY(-1px); }
-
-      .header-controls { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-      .filter-group { display: flex; align-items: center; gap: 8px; }
-      select { padding: 8px 12px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; background-color: #fcfcfc; max-width: 100%; }
-
-      .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-      .card h2 { margin-top: 0; font-size: 1.2em; border-bottom: 2px solid #3498db; padding-bottom: 5px; color: #2980b9; }
-
-      .summary-cards { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
-      .summary-box { flex: 1; min-width: 200px; background: #fff; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-      .summary-box h3 { margin: 0 0 10px 0; color: #555; font-size: 1.1em; }
-      .amount-income { font-size: 2em; font-weight: bold; color: #27ae60; }
-      .amount-expense { font-size: 2em; font-weight: bold; color: #e74c3c; }
-      .amount-balance { font-size: 2em; font-weight: bold; color: #2980b9; }
-
-      .charts-container { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
-      .chart-box { flex: 1; min-width: 200px; background: #fff; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
-      .chart-box h3 { margin-top: 0; font-size: 1em; color: #555; }
-      .canvas-container { position: relative; height: 200px; width: 100%; }
-
-      /* テーブルと明細スクロール用のスタイル */
-      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-      th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
-      th { background-color: #f9f9f9; color: #555; }
-      .text-right { text-align: right; }
-      .row-income { background-color: #eafaf1; }
-
-      .history-table-wrapper {
-        max-height: 500px;
-        overflow: auto;
-        -webkit-overflow-scrolling: touch; /* スマホでのスクロールを滑らかに */
-      }
-      .history-table-wrapper table {
-        min-width: 600px; /* ここで最小幅を指定し横スクロールさせる */
-      }
-      .history-table-wrapper th, .history-table-wrapper td {
-        white-space: nowrap; /* 文字の折り返しを禁止 */
-      }
-      .history-table-wrapper td.col-detail {
-        white-space: normal; /* 内容列のみ長文を考慮して折り返しを許可 */
-        min-width: 150px;
-      }
-
-      .loading { text-align: center; font-size: 1.2em; color: #7f8c8d; padding: 40px; }
-
-      /* スマホ向けメディアクエリ */
-      @media (max-width: 600px) {
-        body { padding: 10px; }
-        .header-top { flex-direction: column; gap: 15px; }
-        .form-btn { position: static; width: 100%; justify-content: center; box-sizing: border-box; }
-        .card { padding: 15px; }
-        .summary-cards { gap: 10px; }
-        .summary-box { min-width: 130px; padding: 15px 10px; }
-        .amount-income, .amount-expense, .amount-balance { font-size: 1.4em; }
-        .charts-container { gap: 10px; }
-        .header-controls { padding: 10px; gap: 10px; }
-      }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <?!= include('shared') ?>
   </head>
   <body>
     <div class="container">
 
       <div class="header-top">
         <h1>家計簿レポート</h1>
+        <a href="<?= baseUrl ?>?page=annual" class="nav-btn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
+            <path d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM1 4h14v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4z"/>
+          </svg>
+          年間レポート
+        </a>
         <a href="<?= formUrl ?>" target="_blank" class="form-btn">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
             <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
@@ -186,10 +127,15 @@
     <script>
       let allData = [];
       let chartInstances = { category: null, payment: null, payer: null, user: null };
-      const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#8AC926', '#1982C4', '#6A4C93'];
 
       window.onload = function() {
-        google.script.run.withSuccessHandler(initializeData).getReportData();
+        google.script.run
+          .withSuccessHandler(initializeData)
+          .withFailureHandler(function(err) {
+            document.getElementById('loading').innerText =
+              'データの読み込みに失敗しました: ' + (err && err.message ? err.message : err);
+          })
+          .getReportData();
       };
 
       function initializeData(data) {
@@ -251,16 +197,9 @@
         let users = {};
 
         targetData.forEach(row => {
-          let amount = Number(row['金額']) || 0;
-          let isIncome = false;
+          let amount = toAmount(row['金額']);
 
-          if (row['収支'] === '収入' || row['収支区分'] === '収入' || row['種類'] === '収入') {
-            isIncome = true;
-          } else if (row['費目'] && (row['費目'].includes('収入') || row['費目'].includes('給与') || row['費目'].includes('賞与'))) {
-            isIncome = true;
-          }
-
-          if (isIncome) {
+          if (isIncome(row)) {
             totalIncome += amount;
           } else {
             totalExpense += amount;
@@ -292,10 +231,10 @@
         renderTable('payer-table', payers);
         renderTable('user-table', users);
 
-        drawChart('categoryChart', categories, 'category');
-        drawChart('paymentChart', payments, 'payment');
-        drawChart('payerChart', payers, 'payer');
-        drawChart('userChart', users, 'user');
+        drawChart('categoryChart', categories, 'category', chartInstances);
+        drawChart('paymentChart', payments, 'payment', chartInstances);
+        drawChart('payerChart', payers, 'payer', chartInstances);
+        drawChart('userChart', users, 'user', chartInstances);
 
         targetData.sort((a, b) => new Date(b['日付']) - new Date(a['日付']));
         const historyTbody = document.getElementById('history-table');
@@ -306,11 +245,10 @@
         }
 
         targetData.forEach(row => {
-          let isIncome = (row['収支'] === '収入' || row['収支区分'] === '収入' || row['種類'] === '収入') ||
-                         (row['費目'] && (row['費目'].includes('収入') || row['費目'].includes('給与')));
+          let income = isIncome(row);
 
           let tr = document.createElement('tr');
-          if (isIncome) tr.className = 'row-income';
+          if (income) tr.className = 'row-income';
 
           let typeStr = row['収支'] || row['収支区分'] ? `[${row['収支'] || row['収支区分']}]<br>${row['費目']}` : row['費目'];
           let dispPayer = row['支払い者'] || row['使用者'] || '-';
@@ -322,65 +260,14 @@
             <td><span style="font-size:0.9em;">${typeStr}</span></td>
             <td class="col-detail">${row['内容・詳細'] || ''}</td>
             <td><span style="font-size:0.8em; color:#666;">決: ${row['支払い方法'] || '-'}<br>払: ${dispPayer}<br>用: ${dispUser}</span></td>
-            <td class="text-right" style="${isIncome ? 'color:#27ae60; font-weight:bold;' : ''}">
-              ${isIncome ? '+' : ''}¥${Number(row['金額']).toLocaleString()}
+            <td class="text-right" style="${income ? 'color:#27ae60; font-weight:bold;' : ''}">
+              ${income ? '+' : ''}¥${toAmount(row['金額']).toLocaleString()}
             </td>
           `;
           historyTbody.appendChild(tr);
         });
       }
 
-      function renderTable(tableId, dataObj) {
-        const tbody = document.querySelector(`#${tableId} tbody`);
-        tbody.innerHTML = '';
-        const sortedArray = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
-
-        sortedArray.forEach(([key, value]) => {
-          let tr = document.createElement('tr');
-          tr.innerHTML = `<td>${key}</td><td class="text-right">¥${value.toLocaleString()}</td>`;
-          tbody.appendChild(tr);
-        });
-      }
-
-      function drawChart(canvasId, dataObj, chartType) {
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        if (chartInstances[chartType]) chartInstances[chartType].destroy();
-
-        const sortedArray = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
-
-        if (sortedArray.length === 0) {
-           chartInstances[chartType] = null;
-           return;
-        }
-
-        const labels = sortedArray.map(item => item[0]);
-        const data = sortedArray.map(item => item[1]);
-
-        chartInstances[chartType] = new Chart(ctx, {
-          type: 'doughnut',
-          data: {
-            labels: labels,
-            datasets: [{ data: data, backgroundColor: colors.slice(0, labels.length), borderWidth: 1 }]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-              legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    let label = context.label || '';
-                    let value = context.raw || 0;
-                    let total = context.chart._metasets[context.datasetIndex].total;
-                    let percentage = total > 0 ? Math.round((value / total) * 100) + '%' : '0%';
-                    return `${label ? label + ': ' : ''}¥${value.toLocaleString()} (${percentage})`;
-                  }
-                }
-              }
-            }
-          }
-        });
-      }
     </script>
   </body>
 </html>
