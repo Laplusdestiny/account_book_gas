@@ -1,10 +1,18 @@
-function doGet() {
-  const template = HtmlService.createTemplateFromFile('index');
+function doGet(e) {
+  // 不正な ?page= で createTemplateFromFile が例外を投げないよう、既知の値のみ許可する
+  const page = (e && e.parameter && e.parameter.page === 'annual') ? 'annual' : 'index';
+  const template = HtmlService.createTemplateFromFile(page);
   // フォームURLをリポジトリに書かず、GASのScript Propertiesから読み込む
   template.formUrl = PropertiesService.getScriptProperties().getProperty('FORM_URL') || '';
+  // HtmlServiceはサンドボックスiframeで配信され相対リンクが効かないため、ページ間移動に絶対URLが要る
+  template.baseUrl = ScriptApp.getService().getUrl() || '';
   return template.evaluate()
-    .setTitle('家計簿レポート')
+    .setTitle(page === 'annual' ? '家計簿 年間レポート' : '家計簿レポート')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 function getReportData() {

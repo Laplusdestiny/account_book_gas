@@ -1,0 +1,167 @@
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+  .container { max-width: 1000px; margin: 0 auto; }
+
+  .header-top { display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 20px; }
+  .header-top h1 { margin: 0; color: #2c3e50; }
+  .form-btn { position: absolute; right: 0; background-color: #27ae60; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
+  .form-btn:hover { background-color: #2ecc71; transform: translateY(-1px); }
+  .nav-btn { position: absolute; left: 0; background-color: #3498db; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
+  .nav-btn:hover { background-color: #2980b9; transform: translateY(-1px); }
+
+  .header-controls { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .filter-group { display: flex; align-items: center; gap: 8px; }
+  select { padding: 8px 12px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; background-color: #fcfcfc; max-width: 100%; }
+
+  .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .card h2 { margin-top: 0; font-size: 1.2em; border-bottom: 2px solid #3498db; padding-bottom: 5px; color: #2980b9; }
+
+  .summary-cards { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+  .summary-box { flex: 1; min-width: 200px; background: #fff; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .summary-box h3 { margin: 0 0 10px 0; color: #555; font-size: 1.1em; }
+  .amount-income { font-size: 2em; font-weight: bold; color: #27ae60; }
+  .amount-expense { font-size: 2em; font-weight: bold; color: #e74c3c; }
+  .amount-balance { font-size: 2em; font-weight: bold; color: #2980b9; }
+
+  .kpi-cards { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+  .kpi-box { flex: 1; min-width: 150px; background: #fff; border-radius: 8px; padding: 18px 12px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .kpi-box h3 { margin: 0 0 8px 0; color: #555; font-size: 0.95em; }
+  .kpi-value { font-size: 1.6em; font-weight: bold; color: #2c3e50; }
+  .kpi-value.kpi-income { color: #27ae60; }
+  .kpi-value.kpi-expense { color: #e74c3c; }
+  .kpi-note { font-size: 0.75em; color: #7f8c8d; margin-top: 4px; }
+
+  .charts-container { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+  .chart-box { flex: 1; min-width: 200px; background: #fff; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+  .chart-box h3 { margin-top: 0; font-size: 1em; color: #555; }
+  .canvas-container { position: relative; height: 200px; width: 100%; }
+  .canvas-container-tall { position: relative; height: 320px; width: 100%; }
+
+  /* テーブルと明細スクロール用のスタイル */
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background-color: #f9f9f9; color: #555; }
+  .text-right { text-align: right; }
+  .row-income { background-color: #eafaf1; }
+
+  .history-table-wrapper {
+    max-height: 500px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch; /* スマホでのスクロールを滑らかに */
+  }
+  .history-table-wrapper table {
+    min-width: 600px; /* ここで最小幅を指定し横スクロールさせる */
+  }
+  .history-table-wrapper th, .history-table-wrapper td {
+    white-space: nowrap; /* 文字の折り返しを禁止 */
+  }
+  .history-table-wrapper td.col-detail {
+    white-space: normal; /* 内容列のみ長文を考慮して折り返しを許可 */
+    min-width: 150px;
+  }
+
+  /* 先頭列を固定するため、セル自体に不透明な背景と重なり順が要る */
+  .heatmap-table th, .heatmap-table td { padding: 8px 6px; font-size: 0.85em; text-align: right; }
+  .heatmap-table th.col-cat, .heatmap-table td.col-cat { text-align: left; position: sticky; left: 0; background-color: #fff; border-right: 1px solid #eee; z-index: 1; }
+  .heatmap-table thead th { position: sticky; top: 0; background-color: #f9f9f9; z-index: 2; }
+  .heatmap-table thead th.col-cat { z-index: 3; }
+  .heatmap-table td.cell-zero { color: #bbb; }
+  .heatmap-table tr.row-total td { font-weight: bold; border-top: 2px solid #3498db; background-color: #fff; }
+
+  .rank-up { color: #e74c3c; }
+  .rank-down { color: #27ae60; }
+
+  .loading { text-align: center; font-size: 1.2em; color: #7f8c8d; padding: 40px; }
+
+  /* スマホ向けメディアクエリ */
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    .header-top { flex-direction: column; gap: 15px; }
+    .form-btn { position: static; width: 100%; justify-content: center; box-sizing: border-box; }
+    .nav-btn { position: static; width: 100%; justify-content: center; box-sizing: border-box; }
+    .card { padding: 15px; }
+    .summary-cards { gap: 10px; }
+    .summary-box { min-width: 130px; padding: 15px 10px; }
+    .amount-income, .amount-expense, .amount-balance { font-size: 1.4em; }
+    .kpi-cards { gap: 10px; }
+    .kpi-box { min-width: 130px; padding: 12px 8px; }
+    .kpi-value { font-size: 1.2em; }
+    .charts-container { gap: 10px; }
+    .canvas-container-tall { height: 240px; }
+    .header-controls { padding: 10px; gap: 10px; }
+    .heatmap-table th, .heatmap-table td { padding: 6px 4px; font-size: 0.75em; }
+  }
+</style>
+
+<script>
+  const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#8AC926', '#1982C4', '#6A4C93'];
+
+  // 収入判定はサマリー・明細行・年間集計の複数箇所で使うため、ここ1箇所に集約する
+  function isIncome(row) {
+    if (row['収支'] === '収入' || row['収支区分'] === '収入' || row['種類'] === '収入') return true;
+    const cat = row['費目'] || '';
+    return cat.includes('収入') || cat.includes('給与') || cat.includes('賞与');
+  }
+
+  // getDisplayValues() は表示文字列を返すため、シートの表示形式次第で "¥1,234" が来て Number() が NaN になる
+  function toAmount(v) {
+    return Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')) || 0;
+  }
+
+  function yen(n) { return '¥' + Math.round(n).toLocaleString(); }
+  function yenSigned(n) { return (n >= 0 ? '+' : '') + '¥' + Math.round(n).toLocaleString(); }
+
+  function renderTable(tableId, dataObj) {
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    tbody.innerHTML = '';
+    const sortedArray = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
+
+    sortedArray.forEach(([key, value]) => {
+      let tr = document.createElement('tr');
+      tr.innerHTML = `<td>${key}</td><td class="text-right">¥${value.toLocaleString()}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function drawChart(canvasId, dataObj, chartKey, instances) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (instances[chartKey]) instances[chartKey].destroy();
+
+    const sortedArray = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
+
+    if (sortedArray.length === 0) {
+       instances[chartKey] = null;
+       return;
+    }
+
+    const labels = sortedArray.map(item => item[0]);
+    const data = sortedArray.map(item => item[1]);
+
+    instances[chartKey] = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{ data: data, backgroundColor: colors.slice(0, labels.length), borderWidth: 1 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                let label = context.label || '';
+                let value = context.raw || 0;
+                // Chart.jsの内部API(_metasets)に依存するとバージョン更新で壊れるため自前で合計する
+                let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                let percentage = total > 0 ? Math.round((value / total) * 100) + '%' : '0%';
+                return `${label ? label + ': ' : ''}¥${value.toLocaleString()} (${percentage})`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+</script>

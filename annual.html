@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <?!= include('shared') ?>
+  </head>
+  <body>
+    <div class="container">
+
+      <div class="header-top">
+        <h1>年間レポート</h1>
+        <a href="<?= baseUrl ?>" class="nav-btn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
+            <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+          </svg>
+          月次レポート
+        </a>
+        <a href="<?= formUrl ?>" target="_blank" class="form-btn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
+            <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+            <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
+          </svg>
+          入力フォーム
+        </a>
+      </div>
+
+      <div id="loading" class="loading">データを読み込んでいます...</div>
+
+      <div id="report-content" style="display: none;">
+
+        <div class="header-controls">
+          <div class="filter-group">
+            <label for="year-select">対象年:</label>
+            <select id="year-select" onchange="updateAnnual()"></select>
+          </div>
+          <div class="filter-group">
+            <label for="payment-select">支払い方法:</label>
+            <select id="payment-select" onchange="updateAnnual()">
+              <option value="all">すべて</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="payer-select">支払い者:</label>
+            <select id="payer-select" onchange="updateAnnual()">
+              <option value="all">すべて</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="user-select">利用者:</label>
+            <select id="user-select" onchange="updateAnnual()">
+              <option value="all">すべて</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="kpi-cards">
+          <div class="kpi-box">
+            <h3>年間収入</h3>
+            <div id="kpi-income" class="kpi-value kpi-income">¥0</div>
+          </div>
+          <div class="kpi-box">
+            <h3>年間支出</h3>
+            <div id="kpi-expense" class="kpi-value kpi-expense">¥0</div>
+          </div>
+          <div class="kpi-box" style="border: 2px solid #3498db;">
+            <h3>年間収支</h3>
+            <div id="kpi-balance" class="kpi-value">¥0</div>
+          </div>
+        </div>
+
+        <div class="kpi-cards">
+          <div class="kpi-box">
+            <h3>月平均支出</h3>
+            <div id="kpi-avg" class="kpi-value">¥0</div>
+            <div id="kpi-avg-note" class="kpi-note"></div>
+          </div>
+          <div class="kpi-box">
+            <h3>貯蓄率</h3>
+            <div id="kpi-saving" class="kpi-value">0%</div>
+            <div id="kpi-saving-note" class="kpi-note"></div>
+          </div>
+          <div class="kpi-box">
+            <h3>最高 / 最低 支出月</h3>
+            <div id="kpi-maxmin" class="kpi-value" style="font-size: 1.0em;">—</div>
+          </div>
+        </div>
+
+        <div id="unknown-note" class="kpi-note" style="margin-bottom: 15px;"></div>
+
+        <div class="card">
+          <h2>月別推移</h2>
+          <div class="canvas-container-tall"><canvas id="trendChart"></canvas></div>
+        </div>
+
+        <!-- ドーナツは高さ固定なので、align-items を伸ばさずランキングの高さに引きずられないようにする -->
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start;">
+          <div class="card" style="flex: 1; min-width: 280px;">
+            <h2>費目別 内訳</h2>
+            <div class="kpi-note" style="margin-bottom: 10px;">上位9費目とその他を表示しています。</div>
+            <div class="canvas-container"><canvas id="categoryChart"></canvas></div>
+          </div>
+          <div class="card" style="flex: 2; min-width: 300px;">
+            <h2>費目別 ランキング</h2>
+            <div class="kpi-note" style="margin-bottom: 10px;">前年比は同じ絞り込み条件での比較です。支出が増えた費目は赤、減った費目は緑で表示します。</div>
+            <div class="history-table-wrapper">
+              <table id="rank-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>費目</th>
+                    <th class="text-right">年間合計</th>
+                    <th class="text-right">月平均</th>
+                    <th class="text-right">構成比</th>
+                    <th class="text-right">前年比</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>費目 × 月 ヒートマップ</h2>
+          <div class="kpi-note" style="margin-bottom: 10px;">色の濃さは費目ごと（横方向）の最大月を基準にしています。行をまたいだ濃さの比較はできません。</div>
+          <div class="history-table-wrapper">
+            <table id="heatmap-table" class="heatmap-table">
+              <thead><tr id="heatmap-head"></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <script>
+      let allData = [];
+      let annualCharts = { trend: null, category: null };
+      const MONTH_LABELS = Array.from({ length: 12 }, (_, i) => (i + 1) + '月');
+
+      window.onload = function() {
+        google.script.run
+          .withSuccessHandler(initializeAnnual)
+          .withFailureHandler(function(err) {
+            document.getElementById('loading').innerText =
+              'データの読み込みに失敗しました: ' + (err && err.message ? err.message : err);
+          })
+          .getReportData();
+      };
+
+      function initializeAnnual(data) {
+        allData = data || [];
+
+        // 年月が '不明' の行は年に割り当てられないため除外する
+        const years = [...new Set(
+          allData.map(d => d['年月']).filter(m => m && m !== '不明').map(m => m.slice(0, 4))
+        )].sort().reverse();
+        const yearSelect = document.getElementById('year-select');
+        years.forEach(y => { yearSelect.appendChild(new Option(y + '年', y)); });
+
+        fillSelect('payment-select', d => d['支払い方法']);
+        fillSelect('payer-select', d => d['支払い者'] || d['使用者']);
+        fillSelect('user-select', d => d['利用者'] || d['使用者']);
+
+        const unknownCount = allData.filter(d => d['年月'] === '不明').length;
+        document.getElementById('unknown-note').innerText = unknownCount > 0
+          ? '※ 日付を判定できない明細が ' + unknownCount + ' 件あり、年間集計から除外しています。'
+          : '';
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('report-content').style.display = 'block';
+
+        updateAnnual();
+      }
+
+      function fillSelect(id, getter) {
+        const el = document.getElementById(id);
+        [...new Set(allData.map(getter))]
+          .filter(v => v && v.trim() !== '' && v !== '収入')
+          .sort()
+          .forEach(v => { el.appendChild(new Option(v, v)); });
+      }
+
+      function filterRows(year) {
+        const selectedPay = document.getElementById('payment-select').value;
+        const selectedPayer = document.getElementById('payer-select').value;
+        const selectedUser = document.getElementById('user-select').value;
+
+        return allData.filter(d => {
+          if (!d['年月'] || d['年月'] === '不明' || d['年月'].slice(0, 4) !== year) return false;
+          if (selectedPay !== 'all' && d['支払い方法'] !== selectedPay) return false;
+          if (selectedPayer !== 'all' && (d['支払い者'] || d['使用者']) !== selectedPayer) return false;
+          if (selectedUser !== 'all' && (d['利用者'] || d['使用者']) !== selectedUser) return false;
+          return true;
+        });
+      }
+
+      function aggregate(rows) {
+        // 1〜12月を必ず埋める。データが無い月も0で残すことでグラフの横軸が常に12本になる
+        const 月収入 = new Array(12).fill(0);
+        const 月支出 = new Array(12).fill(0);
+        const 費目年計 = {};
+        const 費目月別 = {};
+        let 収入計 = 0;
+        let 支出計 = 0;
+
+        rows.forEach(row => {
+          const m = Number(row['年月'].slice(5, 7)) - 1;
+          if (!(m >= 0 && m <= 11)) return;
+
+          const amount = toAmount(row['金額']);
+
+          if (isIncome(row)) {
+            収入計 += amount;
+            月収入[m] += amount;
+          } else {
+            支出計 += amount;
+            月支出[m] += amount;
+
+            const cat = row['費目'] || 'その他';
+            費目年計[cat] = (費目年計[cat] || 0) + amount;
+            if (!費目月別[cat]) 費目月別[cat] = new Array(12).fill(0);
+            費目月別[cat][m] += amount;
+          }
+        });
+
+        // 月平均・最高/最低月の母数は「支出が1円以上あった月数」。
+        // 完了した年は自然に12、進行中の年は経過月数になり、どちらでも直感に合う
+        const 支出月 = [];
+        月支出.forEach((v, i) => { if (v > 0) 支出月.push(i); });
+
+        return { 月収入, 月支出, 費目年計, 費目月別, 収入計, 支出計, 支出月 };
+      }
+
+      function updateAnnual() {
+        const year = document.getElementById('year-select').value;
+
+        const agg = aggregate(filterRows(year));
+        const 月数 = agg.支出月.length;
+
+        // 費目の並び順はランキングとヒートマップで共有する
+        const sortedCats = Object.entries(agg.費目年計).sort((a, b) => b[1] - a[1]);
+
+        renderKpi(agg, 月数);
+        drawTrend(agg.月収入, agg.月支出);
+        drawChart('categoryChart', topNWithOther(sortedCats, 9), 'category', annualCharts);
+        renderRank(sortedCats, agg, 月数, year);
+        renderHeatmap(sortedCats, agg);
+      }
+
+      function renderKpi(agg, 月数) {
+        const 収支 = agg.収入計 - agg.支出計;
+
+        document.getElementById('kpi-income').innerText = yen(agg.収入計);
+        document.getElementById('kpi-expense').innerText = yen(agg.支出計);
+
+        const balanceEl = document.getElementById('kpi-balance');
+        balanceEl.innerText = yenSigned(収支);
+        balanceEl.style.color = 収支 >= 0 ? '#2980b9' : '#e74c3c';
+
+        document.getElementById('kpi-avg').innerText = 月数 ? yen(agg.支出計 / 月数) : '—';
+        document.getElementById('kpi-avg-note').innerText = 月数 ? '支出のあった ' + 月数 + ' か月平均' : '';
+
+        const savingEl = document.getElementById('kpi-saving');
+        const savingNoteEl = document.getElementById('kpi-saving-note');
+        if (agg.収入計 > 0) {
+          const rate = 収支 / agg.収入計 * 100;
+          savingEl.innerText = rate.toFixed(1) + '%';
+          savingEl.style.color = rate >= 0 ? '#27ae60' : '#e74c3c';
+          savingNoteEl.innerText = '';
+        } else {
+          savingEl.innerText = '—';
+          savingEl.style.color = '#7f8c8d';
+          savingNoteEl.innerText = '収入データなし';
+        }
+
+        const maxMinEl = document.getElementById('kpi-maxmin');
+        if (月数 === 0) {
+          maxMinEl.innerText = '—';
+        } else {
+          // 支出0の月を候補に含めると、未到来の月が常に最低月になってしまう
+          const maxM = agg.支出月.reduce((a, b) => agg.月支出[b] > agg.月支出[a] ? b : a);
+          const minM = agg.支出月.reduce((a, b) => agg.月支出[b] < agg.月支出[a] ? b : a);
+          maxMinEl.innerHTML =
+            '<span style="color:#e74c3c;">' + MONTH_LABELS[maxM] + ' ' + yen(agg.月支出[maxM]) + '</span>' +
+            '<br><span style="color:#27ae60;">' + MONTH_LABELS[minM] + ' ' + yen(agg.月支出[minM]) + '</span>';
+        }
+      }
+
+      function drawTrend(月収入, 月支出) {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        if (annualCharts.trend) annualCharts.trend.destroy();
+
+        const 収支 = 月収入.map((v, i) => v - 月支出[i]);
+
+        annualCharts.trend = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: MONTH_LABELS,
+            datasets: [
+              { label: '収入', data: 月収入, backgroundColor: '#27ae60', order: 2 },
+              { label: '支出', data: 月支出, backgroundColor: '#e74c3c', order: 2 },
+              { type: 'line', label: '収支', data: 収支, borderColor: '#2980b9',
+                backgroundColor: '#2980b9', borderWidth: 2, tension: 0.2,
+                pointRadius: 3, fill: false, order: 1 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              y: { beginAtZero: true, ticks: { callback: v => '¥' + Number(v).toLocaleString() } },
+              x: { grid: { display: false } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+              tooltip: {
+                callbacks: {
+                  label: c => c.dataset.label + ': ' + yen(Number(c.parsed.y) || 0)
+                }
+              }
+            }
+          }
+        });
+      }
+
+      function topNWithOther(sorted, n) {
+        if (sorted.length <= n) return Object.fromEntries(sorted);
+        const head = sorted.slice(0, n);
+        const rest = sorted.slice(n).reduce((s, entry) => s + entry[1], 0);
+        return Object.fromEntries([...head, ['その他', rest]]);
+      }
+
+      function renderRank(sortedCats, agg, 月数, year) {
+        const tbody = document.querySelector('#rank-table tbody');
+        tbody.innerHTML = '';
+
+        if (sortedCats.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">該当するデータがありません</td></tr>';
+          return;
+        }
+
+        // 前年比は同じ絞り込み条件で前年を再集計しないと比較にならない
+        const prevAgg = aggregate(filterRows(String(Number(year) - 1)));
+        const hasPrev = Object.keys(prevAgg.費目年計).length > 0;
+
+        sortedCats.forEach(([cat, total], i) => {
+          // 分母は年全体の月数で統一する。行ごとに変えると月平均の合計が全体と突合できなくなる
+          const avg = 月数 ? yen(total / 月数) : '—';
+          const share = agg.支出計 > 0 ? (total / agg.支出計 * 100).toFixed(1) + '%' : '—';
+
+          let yoy = '—';
+          let yoyClass = '';
+          if (hasPrev) {
+            const prev = prevAgg.費目年計[cat];
+            if (prev && prev > 0) {
+              const r = (total - prev) / prev * 100;
+              yoy = (r >= 0 ? '+' : '') + r.toFixed(1) + '%';
+              yoyClass = r >= 0 ? 'rank-up' : 'rank-down';
+            }
+          }
+
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + (i + 1) + '</td>' +
+            '<td>' + cat + '</td>' +
+            '<td class="text-right">' + yen(total) + '</td>' +
+            '<td class="text-right">' + avg + '</td>' +
+            '<td class="text-right">' + share + '</td>' +
+            '<td class="text-right ' + yoyClass + '">' + yoy + '</td>';
+          tbody.appendChild(tr);
+        });
+      }
+
+      function heatStyle(value, rowMax) {
+        if (!value || rowMax <= 0) return '';
+        const ratio = value / rowMax;
+        // 0.6を超えると #333 の文字が読みにくくなるため上限を抑える
+        const alpha = 0.08 + ratio * 0.52;
+        return 'background-color: rgba(52, 152, 219, ' + alpha.toFixed(2) + ');';
+      }
+
+      function renderHeatmap(sortedCats, agg) {
+        const head = document.getElementById('heatmap-head');
+        head.innerHTML = '<th class="col-cat">費目</th>' +
+          MONTH_LABELS.map(m => '<th>' + m + '</th>').join('') +
+          '<th>合計</th>';
+
+        const tbody = document.querySelector('#heatmap-table tbody');
+        tbody.innerHTML = '';
+
+        if (sortedCats.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="14" style="text-align:center; padding: 20px;">該当するデータがありません</td></tr>';
+          return;
+        }
+
+        sortedCats.forEach(([cat, total]) => {
+          const months = agg.費目月別[cat];
+          const rowMax = Math.max(...months);
+
+          const cells = months.map(v => v > 0
+            ? '<td style="' + heatStyle(v, rowMax) + '">' + yen(v) + '</td>'
+            : '<td class="cell-zero">-</td>'
+          ).join('');
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td class="col-cat">' + cat + '</td>' + cells +
+            '<td style="font-weight:bold;">' + yen(total) + '</td>';
+          tbody.appendChild(tr);
+        });
+
+        // 合計行があることで、月別推移グラフの支出バーと数字を直接突合できる
+        const totalTr = document.createElement('tr');
+        totalTr.className = 'row-total';
+        totalTr.innerHTML = '<td class="col-cat">合計</td>' +
+          agg.月支出.map(v => v > 0 ? '<td>' + yen(v) + '</td>' : '<td class="cell-zero">-</td>').join('') +
+          '<td>' + yen(agg.支出計) + '</td>';
+        tbody.appendChild(totalTr);
+      }
+    </script>
+  </body>
+</html>
