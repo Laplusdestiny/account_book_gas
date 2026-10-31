@@ -3,7 +3,28 @@
   <head>
     <base target="_top">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@18.1.0/lib/marked.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js"></script>
     <?!= include('shared') ?>
+    <style>
+      .ai-card { border-top: 4px solid #8e44ad; }
+      .ai-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-bottom: 2px solid #f0e6f6; padding-bottom: 10px; margin-bottom: 15px; }
+      .ai-header h2 { border: none; padding: 0; margin: 0; color: #8e44ad; display: flex; align-items: center; gap: 8px; }
+      .ai-btn { background-color: #8e44ad; color: #fff; border: none; padding: 10px 18px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 0.9em; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .ai-btn:hover { background-color: #9b59b6; transform: translateY(-1px); }
+      .ai-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; transform: none; }
+      .ai-result-box { background-color: #faf8fc; border-radius: 6px; padding: 15px; line-height: 1.7; font-size: 0.95em; color: #2c3e50; border: 1px solid #ebdef0; display: none; }
+      /* .card h2 の青い下線スタイルがMarkdownの見出しにも当たるため上書きする */
+      .ai-result-box h2, .ai-result-box h3 { font-size: 1.05em; color: #8e44ad; border-bottom: 1px solid #ebdef0; padding-bottom: 4px; margin: 1.2em 0 0.6em; }
+      .ai-result-box > :first-child { margin-top: 0; }
+      .ai-result-box p { margin: 0.5em 0; }
+      .ai-result-box ul, .ai-result-box ol { padding-left: 1.4em; margin: 0.4em 0; }
+
+      @media (max-width: 600px) {
+        .ai-btn { width: 100%; }
+        .ai-result-box { padding: 10px; font-size: 0.9em; }
+      }
+    </style>
   </head>
   <body>
     <div class="container">
@@ -120,6 +141,16 @@
               <tbody id="history-table"></tbody>
             </table>
           </div>
+        </div>
+
+        <div class="card ai-card">
+          <div class="ai-header">
+            <h2>✨ AI家計アドバイザー <span style="font-size:0.7em; color:#7f8c8d; font-weight:normal;">(Gemini 3.8 Flash)</span></h2>
+            <button id="ai-analyze-btn" class="ai-btn" onclick="runAiAnalysis()">
+              表示中の月をAI分析する
+            </button>
+          </div>
+          <div id="ai-advice-result" class="ai-result-box"></div>
         </div>
       </div>
     </div>
@@ -268,6 +299,76 @@
         });
       }
 
+      // 収入判定と金額変換を画面表示と完全に一致させるため、AIに渡す集計もサーバーではなくここで isIncome / toAmount を使って行う
+      function summarizeMonthForAi(ym) {
+        const summary = { income: 0, expense: 0, categories: {}, payers: {}, users: {}, details: [] };
+
+        allData.filter(d => d['年月'] === ym).forEach(row => {
+          const amount = toAmount(row['金額']);
+          if (isIncome(row)) {
+            summary.income += amount;
+            return;
+          }
+          summary.expense += amount;
+
+          const cat = row['費目'] || 'その他';
+          summary.categories[cat] = (summary.categories[cat] || 0) + amount;
+
+          const payer = row['支払い者'] || row['使用者'] || '不明';
+          if (payer !== '収入') summary.payers[payer] = (summary.payers[payer] || 0) + amount;
+
+          const user = row['利用者'] || row['使用者'] || '不明';
+          if (user !== '収入') summary.users[user] = (summary.users[user] || 0) + amount;
+
+          if (amount >= 2000) {
+            summary.details.push({ date: row['表示用日付'], category: cat, content: row['内容・詳細'] || '', amount, payer, user });
+          }
+        });
+
+        summary.details = summary.details.sort((a, b) => b.amount - a.amount).slice(0, 25);
+        return summary;
+      }
+
+      function runAiAnalysis() {
+        const selectedMonth = document.getElementById('month-select').value;
+        const btn = document.getElementById('ai-analyze-btn');
+        const resultBox = document.getElementById('ai-advice-result');
+
+        if (!selectedMonth) return;
+
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const prevDate = new Date(year, month - 2, 1);
+        const prevMonth = `${prevDate.getFullYear()}-${('0' + (prevDate.getMonth() + 1)).slice(-2)}`;
+
+        btn.disabled = true;
+        btn.innerText = '🤖 Geminiが分析中... (約10〜15秒)';
+        resultBox.style.display = 'block';
+        resultBox.innerText = `${selectedMonth.replace('-', '年')}月の実績と前月比データを集計し、改善案を作成しています...`;
+
+        google.script.run
+          .withSuccessHandler(function(adviceMarkdown) {
+            btn.disabled = false;
+            btn.innerText = '🔄 もう一度分析する';
+            // CDNの読み込みに失敗していても結果は読めるよう、ライブラリが無ければプレーンテキストで出す
+            if (window.marked && window.DOMPurify) {
+              // AIの出力は信頼できない文字列なので、HTML化したあと必ずサニタイズしてから挿入する
+              resultBox.innerHTML = DOMPurify.sanitize(marked.parse(adviceMarkdown, { breaks: true }));
+            } else {
+              resultBox.innerText = adviceMarkdown;
+            }
+          })
+          .withFailureHandler(function(err) {
+            resultBox.innerText = 'エラーが発生しました:\n' + err.message;
+            btn.disabled = false;
+            btn.innerText = '表示中の月をAI分析する';
+          })
+          .generateMonthlyAiAdvice({
+            month: selectedMonth,
+            prevMonth: prevMonth,
+            current: summarizeMonthForAi(selectedMonth),
+            prev: summarizeMonthForAi(prevMonth)
+          });
+      }
     </script>
   </body>
 </html>
