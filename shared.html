@@ -2,11 +2,13 @@
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
   .container { max-width: 1000px; margin: 0 auto; }
 
-  .header-top { display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 20px; }
-  .header-top h1 { margin: 0; color: #2c3e50; }
-  .form-btn { position: absolute; right: 0; background-color: #27ae60; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
+  /* ページ間リンクが2つ並んでもタブレット幅でタイトルと重ならないよう、絶対配置ではなく3列グリッドで中央を保つ */
+  .header-top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .header-top h1 { grid-column: 2; grid-row: 1; margin: 0; color: #2c3e50; text-align: center; }
+  .nav-group { grid-column: 1; grid-row: 1; justify-self: start; display: flex; gap: 8px; flex-wrap: wrap; }
+  .form-btn { grid-column: 3; grid-row: 1; justify-self: end; background-color: #27ae60; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
   .form-btn:hover { background-color: #2ecc71; transform: translateY(-1px); }
-  .nav-btn { position: absolute; left: 0; background-color: #3498db; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
+  .nav-btn { background-color: #3498db; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; }
   .nav-btn:hover { background-color: #2980b9; transform: translateY(-1px); }
 
   .header-controls { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
@@ -76,9 +78,10 @@
   /* スマホ向けメディアクエリ */
   @media (max-width: 600px) {
     body { padding: 10px; }
-    .header-top { flex-direction: column; gap: 15px; }
-    .form-btn { position: static; width: 100%; justify-content: center; box-sizing: border-box; }
-    .nav-btn { position: static; width: 100%; justify-content: center; box-sizing: border-box; }
+    .header-top { grid-template-columns: 1fr; gap: 12px; }
+    .header-top h1, .nav-group, .form-btn { grid-column: 1; grid-row: auto; justify-self: stretch; }
+    .form-btn { justify-content: center; box-sizing: border-box; }
+    .nav-btn { flex: 1 1 0; justify-content: center; box-sizing: border-box; }
     .card { padding: 15px; }
     .summary-cards { gap: 10px; }
     .summary-box { min-width: 130px; padding: 15px 10px; }
