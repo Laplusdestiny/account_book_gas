@@ -17,12 +17,15 @@
       /* .card h2 の青い下線スタイルがMarkdownの見出しにも当たるため上書きする */
       .ai-result-box h2, .ai-result-box h3 { font-size: 1.05em; color: #8e44ad; border-bottom: 1px solid #ebdef0; padding-bottom: 4px; margin: 1.2em 0 0.6em; }
       .ai-result-box > :first-child { margin-top: 0; }
+      .ai-status { font-size: 0.85em; color: #7f8c8d; margin-bottom: 10px; display: none; }
+      .ai-status.ai-status-warn { color: #c0392b; font-weight: bold; }
       .ai-result-box p { margin: 0.5em 0; }
       .ai-result-box ul, .ai-result-box ol { padding-left: 1.4em; margin: 0.4em 0; }
 
       @media (max-width: 600px) {
         .ai-btn { width: 100%; }
         .ai-result-box { padding: 10px; font-size: 0.9em; }
+        .ai-status { font-size: 0.8em; }
       }
     </style>
   </head>
@@ -150,6 +153,7 @@
               表示中の月をAI分析する
             </button>
           </div>
+          <div id="ai-advice-status" class="ai-status"></div>
           <div id="ai-advice-result" class="ai-result-box"></div>
         </div>
       </div>
@@ -158,6 +162,9 @@
     <script>
       let allData = [];
       let chartInstances = { category: null, payment: null, payer: null, user: null };
+      let savedAdvice = {};
+      let savedAdviceLoaded = false;
+      let aiBusy = false;
 
       window.onload = function() {
         google.script.run
@@ -167,6 +174,20 @@
               'データの読み込みに失敗しました: ' + (err && err.message ? err.message : err);
           })
           .getReportData();
+
+        // 保存済み結果が読めなくても家計簿本体の表示は止めないよう、別の呼び出しにしている
+        google.script.run
+          .withSuccessHandler(function(saved) {
+            savedAdvice = saved || {};
+            savedAdviceLoaded = true;
+            renderAiAdvice();
+          })
+          .withFailureHandler(function(err) {
+            savedAdviceLoaded = true;
+            renderAiAdvice();
+            showAiStatus('保存済みの分析結果を読み込めませんでした: ' + (err && err.message ? err.message : err), true);
+          })
+          .getSavedAiAdvice();
       };
 
       function initializeData(data) {
@@ -297,6 +318,8 @@
           `;
           historyTbody.appendChild(tr);
         });
+
+        renderAiAdvice();
       }
 
       // 収入判定と金額変換を画面表示と完全に一致させるため、AIに渡す集計もサーバーではなくここで isIncome / toAmount を使って行う
@@ -329,45 +352,123 @@
         return summary;
       }
 
+      function buildAiRequest(selectedMonth) {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const prevDate = new Date(year, month - 2, 1);
+        const prevMonth = `${prevDate.getFullYear()}-${('0' + (prevDate.getMonth() + 1)).slice(-2)}`;
+        const current = summarizeMonthForAi(selectedMonth);
+        const prev = summarizeMonthForAi(prevMonth);
+        // 前月も分析に使っているため、前月の修正でも「更新あり」と判定されるよう両方から指紋を作る
+        return { month: selectedMonth, prevMonth, current, prev, fingerprint: fingerprintOf({ current, prev }) };
+      }
+
+      // 保存済み結果が今のデータから作られたものかを見分けるためだけの指紋なので、改ざん検知に耐える強さは要らずFNV-1aで足りる
+      function fingerprintOf(value) {
+        // 費目などの集計オブジェクトはキーの並びが明細の順番で変わるため、並べ替えてから文字列化する
+        const json = JSON.stringify(value, (key, v) => (v && typeof v === 'object' && !Array.isArray(v))
+          ? Object.keys(v).sort().reduce((o, k) => { o[k] = v[k]; return o; }, {})
+          : v);
+        let hash = 0x811c9dc5;
+        for (let i = 0; i < json.length; i++) {
+          hash ^= json.charCodeAt(i);
+          hash = Math.imul(hash, 0x01000193);
+        }
+        return ('0000000' + (hash >>> 0).toString(16)).slice(-8);
+      }
+
+      function showAiMarkdown(markdown) {
+        const resultBox = document.getElementById('ai-advice-result');
+        resultBox.style.display = 'block';
+        // CDNの読み込みに失敗していても結果は読めるよう、ライブラリが無ければプレーンテキストで出す
+        if (window.marked && window.DOMPurify) {
+          // AIの出力は信頼できない文字列なので、HTML化したあと必ずサニタイズしてから挿入する
+          resultBox.innerHTML = DOMPurify.sanitize(marked.parse(markdown, { breaks: true }));
+        } else {
+          resultBox.innerText = markdown;
+        }
+      }
+
+      function showAiStatus(text, warn) {
+        const status = document.getElementById('ai-advice-status');
+        status.innerText = text;
+        status.className = warn ? 'ai-status ai-status-warn' : 'ai-status';
+        status.style.display = text ? 'block' : 'none';
+      }
+
+      function renderAiAdvice() {
+        // 分析中に月を切り替えても「分析中」の表示を上書きしないよう、完了後の再描画に任せる
+        if (aiBusy) return;
+        const selectedMonth = document.getElementById('month-select').value;
+        const btn = document.getElementById('ai-analyze-btn');
+        const resultBox = document.getElementById('ai-advice-result');
+        if (!selectedMonth) return;
+
+        if (!savedAdviceLoaded) {
+          resultBox.style.display = 'none';
+          showAiStatus('保存済みの分析結果を確認しています...', false);
+          return;
+        }
+
+        const saved = savedAdvice[selectedMonth];
+        if (!saved) {
+          resultBox.style.display = 'none';
+          showAiStatus('', false);
+          btn.innerText = '表示中の月をAI分析する';
+          return;
+        }
+
+        showAiMarkdown(saved.markdown);
+        btn.innerText = '🔄 再分析して上書き';
+        if (saved.fingerprint !== buildAiRequest(selectedMonth).fingerprint) {
+          showAiStatus(`分析日時: ${saved.analyzedAt}　⚠ 分析後に家計簿が更新されています。再分析すると最新の内容で上書きされます。`, true);
+        } else {
+          showAiStatus(`分析日時: ${saved.analyzedAt}`, false);
+        }
+      }
+
       function runAiAnalysis() {
         const selectedMonth = document.getElementById('month-select').value;
         const btn = document.getElementById('ai-analyze-btn');
         const resultBox = document.getElementById('ai-advice-result');
 
-        if (!selectedMonth) return;
+        if (!selectedMonth || aiBusy) return;
 
-        const [year, month] = selectedMonth.split('-').map(Number);
-        const prevDate = new Date(year, month - 2, 1);
-        const prevMonth = `${prevDate.getFullYear()}-${('0' + (prevDate.getMonth() + 1)).slice(-2)}`;
+        const monthLabel = selectedMonth.replace('-', '年') + '月';
+        const saved = savedAdvice[selectedMonth];
+        // 上書きすると前の結果は戻せないため、保存済みがあるときだけ確認する
+        if (saved && !confirm(`${monthLabel}の分析結果を上書きします。よろしいですか？`)) return;
 
+        const req = buildAiRequest(selectedMonth);
+        // サーバー側で「待っている間に同じデータで別の人が分析し終えたか」を判定するため、押した時点の結果を伝える
+        req.baseAnalyzedAt = saved ? saved.analyzedAt : '';
+
+        aiBusy = true;
         btn.disabled = true;
-        btn.innerText = '🤖 Geminiが分析中... (約10〜15秒)';
+        btn.innerText = '🤖 Geminiが分析中...';
+        showAiStatus('', false);
         resultBox.style.display = 'block';
-        resultBox.innerText = `${selectedMonth.replace('-', '年')}月の実績と前月比データを集計し、改善案を作成しています...`;
+        resultBox.innerText = `${monthLabel}の実績と前月比データを集計し、改善案を作成しています...`;
 
         google.script.run
-          .withSuccessHandler(function(adviceMarkdown) {
+          .withSuccessHandler(function(result) {
+            aiBusy = false;
             btn.disabled = false;
-            btn.innerText = '🔄 もう一度分析する';
-            // CDNの読み込みに失敗していても結果は読めるよう、ライブラリが無ければプレーンテキストで出す
-            if (window.marked && window.DOMPurify) {
-              // AIの出力は信頼できない文字列なので、HTML化したあと必ずサニタイズしてから挿入する
-              resultBox.innerHTML = DOMPurify.sanitize(marked.parse(adviceMarkdown, { breaks: true }));
-            } else {
-              resultBox.innerText = adviceMarkdown;
+            // GASエディタで片方のファイルだけ貼り替えると旧形式（文字列）が返り「undefined」と表示されるため、形を確かめて原因を示す
+            if (!result || typeof result.markdown !== 'string') {
+              renderAiAdvice();
+              showAiStatus('サーバーからの応答形式が想定と違います。GASエディタの code.js が最新か、デプロイが更新されているか確認してください。', true);
+              return;
             }
+            savedAdvice[selectedMonth] = result;
+            renderAiAdvice();
           })
           .withFailureHandler(function(err) {
-            resultBox.innerText = 'エラーが発生しました:\n' + err.message;
+            aiBusy = false;
             btn.disabled = false;
-            btn.innerText = '表示中の月をAI分析する';
+            renderAiAdvice();
+            showAiStatus('エラーが発生しました: ' + (err && err.message ? err.message : err), true);
           })
-          .generateMonthlyAiAdvice({
-            month: selectedMonth,
-            prevMonth: prevMonth,
-            current: summarizeMonthForAi(selectedMonth),
-            prev: summarizeMonthForAi(prevMonth)
-          });
+          .generateMonthlyAiAdvice(req);
       }
     </script>
   </body>

@@ -54,13 +54,42 @@ function getReportData() {
   return result.filter(row => row['日付'] !== '');
 }
 
+const AI_SHEET_NAME = 'AI分析';
+const AI_SHEET_HEADERS = ['年月', '分析日時', 'データ指紋', 'モデル', '結果'];
+
+function readAiAdviceRows_(sheet) {
+  const values = sheet.getDataRange().getDisplayValues();
+  const rows = {};
+  values.slice(1).forEach((row, i) => {
+    if (!row[0]) return;
+    rows[row[0]] = { rowNumber: i + 2, analyzedAt: row[1], fingerprint: row[2], model: row[3], markdown: row[4] };
+  });
+  return rows;
+}
+
+/**
+ * 保存済みのAI分析結果を年月ごとに返す。閲覧のたびにGeminiを呼ばないよう、表示はこれだけで済ませる
+ */
+function getSavedAiAdvice() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(AI_SHEET_NAME);
+  if (!sheet) return {};
+  const rows = readAiAdviceRows_(sheet);
+  const result = {};
+  Object.keys(rows).forEach(ym => {
+    const { analyzedAt, fingerprint, model, markdown } = rows[ym];
+    result[ym] = { analyzedAt, fingerprint, model, markdown };
+  });
+  return result;
+}
+
 /**
  * クライアントで集計済みの当月・前月サマリーを受け取り、Geminiで振り返りと改善案（Markdown）を生成する
  */
 function generateMonthlyAiAdvice(req) {
   // google.script.run はWebアプリにアクセスできる人なら任意の引数で呼べるため、プロンプトに埋め込む前に形を確かめる
   const ymPattern = /^\d{4}-\d{2}$/;
-  if (!req || !ymPattern.test(req.month) || !ymPattern.test(req.prevMonth) || !req.current || !req.prev) {
+  if (!req || !ymPattern.test(req.month) || !ymPattern.test(req.prevMonth) || !req.current || !req.prev
+    || !/^[0-9a-f]{8}$/.test(req.fingerprint)) {
     throw new Error('分析対象の指定が不正です。');
   }
 
@@ -84,8 +113,8 @@ function generateMonthlyAiAdvice(req) {
   const detailSection = sendDetails ? `
 ■ 当月の主な出費明細（2,000円以上・金額の大きい順に最大25件）
 ${(current.details || []).slice(0, 25)
-  .map(d => `${d.date} [${d.category}] ${d.content || '詳細なし'}: ¥${toNum(d.amount).toLocaleString()} (払:${d.payer}/用:${d.user})`)
-  .join('\n') || '・該当なし'}
+      .map(d => `${d.date} [${d.category}] ${d.content || '詳細なし'}: ¥${toNum(d.amount).toLocaleString()} (払:${d.payer}/用:${d.user})`)
+      .join('\n') || '・該当なし'}
 ` : '';
 
   const prompt = `
@@ -129,24 +158,57 @@ Markdown形式で出力してください。見出しは次の3つを「##」で
   const payload = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: 0.7
+      temperature: 0.7,
+      // 3.8 Flashは省略時mediumで推論し待ち時間が長いため、家計アドバイス程度ならlowで十分と判断した
+      thinkingConfig: { thinkingLevel: 'low' }
     }
   };
 
-  const response = UrlFetchApp.fetch(url, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
-
-  const resCode = response.getResponseCode();
-  const resText = response.getContentText();
-
-  if (resCode !== 200) {
-    throw new Error(`Gemini API エラー (${resCode}): ${resText}`);
+  // 家族が同時に分析しても行が二重にならず、同じデータへのGemini呼び出しも重複しないよう、呼び出しから保存までを直列化する
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(200000)) {
+    throw new Error('ほかの分析が実行中です。しばらくしてからもう一度お試しください。');
   }
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(AI_SHEET_NAME);
+    if (!sheet) {
+      // getReportData は getSheets()[0] を家計簿として読むため、先頭シートを動かさないよう必ず末尾に追加する
+      sheet = ss.insertSheet(AI_SHEET_NAME, ss.getSheets().length);
+      sheet.getRange(1, 1, 1, AI_SHEET_HEADERS.length).setValues([AI_SHEET_HEADERS]);
+    }
+    const saved = readAiAdviceRows_(sheet)[month];
 
-  const json = JSON.parse(resText);
-  return json.candidates[0].content.parts[0].text;
+    // 押した時点で見ていた結果とは別の結果が、待っている間に同じデータで保存されていたら、それを使い回す
+    if (saved && saved.fingerprint === req.fingerprint && saved.analyzedAt !== (req.baseAnalyzedAt || '')) {
+      return { analyzedAt: saved.analyzedAt, fingerprint: saved.fingerprint, model: saved.model, markdown: saved.markdown };
+    }
+
+    const response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const resCode = response.getResponseCode();
+    const resText = response.getContentText();
+
+    if (resCode !== 200) {
+      throw new Error(`Gemini API エラー (${resCode}): ${resText}`);
+    }
+
+    const json = JSON.parse(resText);
+    const markdown = json.candidates[0].content.parts[0].text;
+    const analyzedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm:ss');
+
+    const record = [month, analyzedAt, req.fingerprint, model, markdown];
+    const rowNumber = saved ? saved.rowNumber : sheet.getLastRow() + 1;
+    // 「2026-10」が日付に、16進の指紋が数値や指数表記に自動変換されないよう、書式なしテキストとして書き込む
+    sheet.getRange(rowNumber, 1, 1, record.length).setNumberFormat('@').setValues([record]);
+
+    return { analyzedAt, fingerprint: req.fingerprint, model, markdown };
+  } finally {
+    lock.releaseLock();
+  }
 }
