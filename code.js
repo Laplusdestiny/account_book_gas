@@ -1,13 +1,15 @@
+const PAGE_TITLES = { index: '家計簿レポート', annual: '家計簿 年間レポート', budget: '家計簿 予算' };
+
 function doGet(e) {
   // 不正な ?page= で createTemplateFromFile が例外を投げないよう、既知の値のみ許可する
-  const page = (e && e.parameter && e.parameter.page === 'annual') ? 'annual' : 'index';
+  const page = (e && e.parameter && ['annual', 'budget'].indexOf(e.parameter.page) !== -1) ? e.parameter.page : 'index';
   const template = HtmlService.createTemplateFromFile(page);
   // フォームURLをリポジトリに書かず、GASのScript Propertiesから読み込む
   template.formUrl = PropertiesService.getScriptProperties().getProperty('FORM_URL') || '';
   // HtmlServiceはサンドボックスiframeで配信され相対リンクが効かないため、ページ間移動に絶対URLが要る
   template.baseUrl = ScriptApp.getService().getUrl() || '';
   return template.evaluate()
-    .setTitle(page === 'annual' ? '家計簿 年間レポート' : '家計簿レポート')
+    .setTitle(PAGE_TITLES[page])
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -211,4 +213,104 @@ Markdown形式で出力してください。見出しは次の3つを「##」で
   } finally {
     lock.releaseLock();
   }
+}
+
+const BUDGET_SHEET_NAME = '予算';
+const BUDGET_SHEET_HEADERS = ['適用開始年月', '費目', '月予算', '更新日時'];
+const BUDGET_MAX_ITEMS = 100;
+const BUDGET_MAX_CATEGORY_LENGTH = 50;
+const BUDGET_MAX_AMOUNT = 100000000;
+
+// 年月列を手で編集されて日付として解釈されても（表示が「2026/11/01」など）同じ月として扱えるよう、形式を揃える
+function normalizeBudgetMonth_(value) {
+  const m = String(value || '').trim().match(/^(\d{4})[-\/](\d{1,2})(?:[-\/]\d{1,2})?$/);
+  if (!m || Number(m[2]) < 1 || Number(m[2]) > 12) return '';
+  return m[1] + '-' + ('0' + m[2]).slice(-2);
+}
+
+function readBudgetRows_(sheet) {
+  const values = sheet.getDataRange().getDisplayValues();
+  const rows = [];
+  values.slice(1).forEach((row, i) => {
+    const startMonth = normalizeBudgetMonth_(row[0]);
+    const category = String(row[1] || '').trim();
+    if (!startMonth || !category) return;
+    rows.push({ rowNumber: i + 2, startMonth, category, amount: row[2], updatedAt: row[3] });
+  });
+  return rows;
+}
+
+/**
+ * 予算シートの全行を返す。どの行がその月に効くか（適用開始年月の解決）は、実績の集計と同じくクライアント側で行う
+ */
+function getBudgets() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(BUDGET_SHEET_NAME);
+  if (!sheet) return [];
+  return readBudgetRows_(sheet).map(({ startMonth, category, amount, updatedAt }) => ({ startMonth, category, amount, updatedAt }));
+}
+
+/**
+ * 指定した適用開始年月の予算を保存する。過去月の表示を変えないため、既存行は (適用開始年月, 費目) が同じものだけを上書きする
+ */
+function saveBudgets(req) {
+  // google.script.run はWebアプリにアクセスできる人なら任意の引数で呼べるため、シートに書く前に形を確かめる
+  if (!req || !/^\d{4}-(0[1-9]|1[0-2])$/.test(req.startMonth) || !Array.isArray(req.items)
+    || req.items.length === 0 || req.items.length > BUDGET_MAX_ITEMS) {
+    throw new Error('予算の指定が不正です。');
+  }
+  const seen = {};
+  const items = req.items.map(item => {
+    const category = (item && typeof item.category === 'string') ? item.category.trim() : '';
+    // 先頭が = + - @ の文字列はシートに数式として解釈されうるため受け付けない
+    if (!category || category.length > BUDGET_MAX_CATEGORY_LENGTH || /^[=+\-@]/.test(category) || seen[category]) {
+      throw new Error(`費目の指定が不正です: ${category}`);
+    }
+    const amount = item.amount;
+    if (!Number.isInteger(amount) || amount < 0 || amount > BUDGET_MAX_AMOUNT) {
+      throw new Error(`${category} の予算額が不正です。0以上の整数で入力してください。`);
+    }
+    seen[category] = true;
+    return { category, amount };
+  });
+
+  // 家族が同時に保存しても同じ (適用開始年月, 費目) の行が二重にならないよう、読み込みから書き込みまでを直列化する
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    throw new Error('ほかの保存処理が実行中です。しばらくしてからもう一度お試しください。');
+  }
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
+    if (!sheet) {
+      // getReportData は getSheets()[0] を家計簿として読むため、先頭シートを動かさないよう必ず末尾に追加する
+      sheet = ss.insertSheet(BUDGET_SHEET_NAME, ss.getSheets().length);
+      sheet.getRange(1, 1, 1, BUDGET_SHEET_HEADERS.length).setValues([BUDGET_SHEET_HEADERS]);
+    }
+
+    const existing = {};
+    readBudgetRows_(sheet).forEach(r => { existing[r.startMonth + '\u0000' + r.category] = r.rowNumber; });
+
+    const updatedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm:ss');
+    // 「2026-11」が日付に自動変換されないよう、年月・費目・日時は書式なしテキストとして書き込む
+    const formats = ['@', '@', '0', '@'];
+    const appends = [];
+    items.forEach(({ category, amount }) => {
+      const record = [req.startMonth, category, amount, updatedAt];
+      const rowNumber = existing[req.startMonth + '\u0000' + category];
+      if (rowNumber) {
+        sheet.getRange(rowNumber, 1, 1, record.length).setNumberFormats([formats]).setValues([record]);
+      } else {
+        appends.push(record);
+      }
+    });
+    if (appends.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, appends.length, formats.length)
+        .setNumberFormats(appends.map(() => formats))
+        .setValues(appends);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+  // 保存直後の画面更新で再読み込みの往復を省くため、最新の全行をそのまま返す
+  return getBudgets();
 }

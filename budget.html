@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('shared') ?>
+    <style>
+      .over-alert { background: #fdedec; border: 1px solid #f5b7b1; border-left: 5px solid #e74c3c; color: #922b21; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; }
+      .over-alert strong { display: block; margin-bottom: 4px; }
+      .over-alert ul { margin: 0; padding-left: 1.2em; }
+
+      .budget-row { padding: 12px 0; border-bottom: 1px solid #eee; }
+      .budget-row:last-child { border-bottom: none; }
+      .budget-row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+      .budget-name { font-weight: bold; color: #2c3e50; }
+      .budget-figures { color: #555; white-space: nowrap; }
+      .budget-figures strong { color: #2c3e50; }
+      .bar { height: 10px; background: #ecf0f1; border-radius: 5px; overflow: hidden; margin: 8px 0 4px; }
+      .bar-fill { height: 100%; border-radius: 5px; background: #27ae60; }
+      .level-warn .bar-fill { background: #f39c12; }
+      .level-over .bar-fill { background: #e74c3c; }
+      .budget-row-foot { display: flex; justify-content: space-between; gap: 10px; font-size: 0.85em; color: #7f8c8d; }
+      .level-warn .budget-pct { color: #b9770e; font-weight: bold; }
+      .level-over .budget-pct, .level-over .budget-remain { color: #e74c3c; font-weight: bold; }
+
+      .budget-total { border: 2px solid #3498db; border-radius: 8px; padding: 16px; margin-bottom: 10px; }
+      .budget-total .bar { height: 16px; border-radius: 8px; }
+      .budget-total .budget-figures strong { font-size: 1.6em; }
+      .pace-note { font-size: 0.85em; color: #7f8c8d; margin-top: 8px; }
+      .empty-note { color: #7f8c8d; padding: 10px 0; margin: 0; }
+      .unbudgeted h3 { font-size: 1em; color: #555; margin: 20px 0 5px; }
+
+      .setting-note { font-size: 0.9em; color: #555; line-height: 1.6; margin: 0 0 10px; }
+      .budget-form-table td { vertical-align: middle; }
+      .applied-from { display: block; font-size: 0.8em; color: #7f8c8d; }
+      .budget-input { width: 9em; padding: 8px 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; text-align: right; box-sizing: border-box; }
+      .budget-input.changed { border-color: #3498db; background-color: #ebf5fb; }
+      .budget-input.invalid { border-color: #e74c3c; background-color: #fdedec; }
+      .add-category { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+      .add-category input { flex: 1; min-width: 0; max-width: 260px; padding: 8px 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+      .sub-btn { background: #fff; color: #2980b9; border: 1px solid #3498db; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; cursor: pointer; }
+      .save-row { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 15px; flex-wrap: wrap; }
+      .save-btn { background: #3498db; color: #fff; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 0.95em; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .save-btn:hover { background: #2980b9; }
+      .save-btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+      .save-status { font-size: 0.9em; color: #7f8c8d; }
+      .save-status.status-warn { color: #c0392b; font-weight: bold; }
+      .save-status.status-ok { color: #27ae60; font-weight: bold; }
+      button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #85c1e9; outline-offset: 2px; }
+
+      @media (max-width: 600px) {
+        .over-alert { padding: 12px; }
+        .budget-total { padding: 12px; }
+        .budget-total .budget-figures strong { font-size: 1.3em; }
+        .budget-form-table th, .budget-form-table td { padding: 8px 4px; font-size: 0.9em; }
+        .budget-input { width: 7.5em; }
+        .add-category input { max-width: none; }
+        .save-row { flex-direction: column-reverse; align-items: stretch; }
+        .save-btn { width: 100%; }
+        .save-status { text-align: center; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+
+      <div class="header-top">
+        <h1>予算</h1>
+        <div class="nav-group">
+          <a href="<?= baseUrl ?>" class="nav-btn">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
+              <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+            </svg>
+            月次レポート
+          </a>
+          <a href="<?= baseUrl ?>?page=annual" class="nav-btn">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
+              <path d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM1 4h14v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4z"/>
+            </svg>
+            年間レポート
+          </a>
+        </div>
+        <a href="<?= formUrl ?>" target="_blank" class="form-btn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
+            <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+            <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
+          </svg>
+          入力フォーム
+        </a>
+      </div>
+
+      <div id="loading" class="loading">データを読み込んでいます...</div>
+
+      <div id="report-content" style="display: none;">
+
+        <div class="header-controls">
+          <div class="filter-group">
+            <label for="month-select">表示月:</label>
+            <select id="month-select" onchange="renderAll()"></select>
+          </div>
+        </div>
+
+        <div id="over-alert" class="over-alert" role="alert" style="display: none;"></div>
+
+        <div class="card">
+          <h2>予算と実績</h2>
+          <div id="total-block"></div>
+          <div id="budget-list"></div>
+          <div id="unbudgeted" class="unbudgeted"></div>
+        </div>
+
+        <div class="card">
+          <h2>予算の設定</h2>
+          <p id="setting-note" class="setting-note"></p>
+          <table class="budget-form-table">
+            <thead>
+              <tr>
+                <th>費目</th>
+                <th>適用中の予算</th>
+                <th class="text-right">月予算</th>
+              </tr>
+            </thead>
+            <tbody id="budget-form"></tbody>
+          </table>
+          <div class="add-category">
+            <input id="new-category" type="text" maxlength="50" placeholder="予算を立てる費目を追加" aria-label="追加する費目名">
+            <button type="button" class="sub-btn" onclick="addCategoryRow()">費目を追加</button>
+          </div>
+          <div class="save-row">
+            <span id="save-status" class="save-status" role="status"></span>
+            <button id="save-btn" type="button" class="save-btn" onclick="saveBudgetSettings()">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 費目全体の上限を表す予約語。家計簿側に同名の費目があると区別できないため、費目名には使わない前提
+      const TOTAL_KEY = '全体';
+      const WARN_RATIO = 0.8;
+      const MAX_AMOUNT = 100000000;
+
+      let allData = [];
+      let budgets = [];
+      let extraCategories = [];
+      let saving = false;
+
+      window.onload = function() {
+        let pending = 2;
+        let failed = false;
+        const done = function() {
+          if (--pending === 0 && !failed) initialize();
+        };
+        // 実績と予算の両方が揃わないと消化率を出せないため、どちらかが失敗したら本体を表示しない
+        const fail = function(what) {
+          return function(err) {
+            failed = true;
+            document.getElementById('loading').innerText =
+              what + 'の読み込みに失敗しました: ' + (err && err.message ? err.message : err);
+          };
+        };
+        google.script.run
+          .withSuccessHandler(function(data) { allData = data || []; done(); })
+          .withFailureHandler(fail('家計簿データ'))
+          .getReportData();
+        google.script.run
+          .withSuccessHandler(function(rows) { budgets = rows || []; done(); })
+          .withFailureHandler(fail('予算'))
+          .getBudgets();
+      };
+
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, function(c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function ymOf(date) { return date.getFullYear() + '-' + ('0' + (date.getMonth() + 1)).slice(-2); }
+      // 月次レポートの月選択と同じ「2026年05月」表記に揃える
+      function monthLabel(ym) { return ym.replace('-', '年') + '月'; }
+
+      function initialize() {
+        const now = new Date();
+        const currentYm = ymOf(now);
+        // 来月分の予算を前もって立てられるよう、データがまだない今月・来月も選べるようにする
+        const nextYm = ymOf(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+        const months = [...new Set(allData.map(d => d['年月']).concat([currentYm, nextYm]))]
+          .filter(m => m && m !== '不明').sort().reverse();
+
+        const monthSelect = document.getElementById('month-select');
+        months.forEach(ym => {
+          monthSelect.appendChild(new Option(monthLabel(ym) + (ym === currentYm ? '（今月）' : ''), ym));
+        });
+        monthSelect.value = currentYm;
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('report-content').style.display = 'block';
+        renderAll();
+      }
+
+      // その月に効くのは「適用開始年月がその月以前で最も新しい行」。後から予算を変えても過去月の消化率が変わらないようにするため
+      function effectiveBudgets(ym) {
+        const result = {};
+        budgets.forEach(b => {
+          if (b.startMonth > ym) return;
+          const cur = result[b.category];
+          if (!cur || b.startMonth > cur.startMonth) {
+            result[b.category] = { amount: toAmount(b.amount), startMonth: b.startMonth };
+          }
+        });
+        return result;
+      }
+
+      function nextChange(category, ym) {
+        return budgets
+          .filter(b => b.category === category && b.startMonth > ym)
+          .sort((a, b) => a.startMonth < b.startMonth ? -1 : 1)[0] || null;
+      }
+
+      // 月次レポートと同じ isIncome / toAmount / 「費目が空ならその他」で集計し、画面間で支出額が食い違わないようにする
+      function monthActuals(ym) {
+        const categories = {};
+        let total = 0;
+        allData.forEach(row => {
+          if (row['年月'] !== ym || isIncome(row)) return;
+          const amount = toAmount(row['金額']);
+          total += amount;
+          const cat = row['費目'] || 'その他';
+          categories[cat] = (categories[cat] || 0) + amount;
+        });
+        return { total, categories };
+      }
+
+      function expenseCategories() {
+        const set = new Set();
+        allData.forEach(row => { if (!isIncome(row)) set.add(row['費目'] || 'その他'); });
+        budgets.forEach(b => set.add(b.category));
+        extraCategories.forEach(c => set.add(c));
+        set.delete(TOTAL_KEY);
+        return [TOTAL_KEY].concat([...set].sort());
+      }
+
+      function usageOf(name, actual, budget) {
+        const ratio = actual / budget;
+        const level = actual > budget ? 'over' : (ratio >= WARN_RATIO ? 'warn' : 'ok');
+        return { name, actual, budget, ratio, level };
+      }
+
+      function renderAll() {
+        renderUsage();
+        renderForm({});
+        setSaveStatus('', '');
+      }
+
+      function renderUsage() {
+        const ym = document.getElementById('month-select').value;
+        const eff = effectiveBudgets(ym);
+        const act = monthActuals(ym);
+
+        const totalBudget = eff[TOTAL_KEY] ? eff[TOTAL_KEY].amount : 0;
+        const totalUsage = totalBudget > 0 ? usageOf('全体', act.total, totalBudget) : null;
+
+        const usages = Object.keys(eff)
+          .filter(cat => cat !== TOTAL_KEY && eff[cat].amount > 0)
+          .map(cat => usageOf(cat, act.categories[cat] || 0, eff[cat].amount))
+          .sort((a, b) => b.ratio - a.ratio);
+
+        const totalBlock = document.getElementById('total-block');
+        let paceNote = '';
+        const now = new Date();
+        if (ym === ymOf(now)) {
+          const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+          paceNote = `<div class="pace-note">今月は${now.getDate()}日目です（月の${Math.round(now.getDate() / daysInMonth * 100)}%が経過）</div>`;
+        }
+        if (totalUsage) {
+          totalBlock.innerHTML = `<div class="budget-total level-${totalUsage.level}">${usageRowHtml(totalUsage, '支出の合計')}${paceNote}</div>`;
+        } else if (usages.length > 0) {
+          totalBlock.innerHTML = `<p class="empty-note">支出の合計は ${yen(act.total)} です（全体の予算は未設定）。</p>${paceNote}`;
+        } else {
+          totalBlock.innerHTML = `<p class="empty-note">${monthLabel(ym)}に適用される予算はまだありません。下の「予算の設定」で月予算を入力して保存してください。</p>`;
+        }
+
+        document.getElementById('budget-list').innerHTML = usages
+          .map(u => `<div class="budget-row level-${u.level}">${usageRowHtml(u, u.name)}</div>`).join('');
+
+        const unbudgeted = Object.entries(act.categories)
+          .filter(([cat, amount]) => amount > 0 && !(eff[cat] && eff[cat].amount > 0))
+          .sort((a, b) => b[1] - a[1]);
+        const unbudgetedBox = document.getElementById('unbudgeted');
+        if (unbudgeted.length > 0 && (totalUsage || usages.length > 0)) {
+          unbudgetedBox.innerHTML = '<h3>予算を立てていない費目の支出</h3><table><tbody>' +
+            unbudgeted.map(([cat, amount]) => `<tr><td>${esc(cat)}</td><td class="text-right">${yen(amount)}</td></tr>`).join('') +
+            '</tbody></table>';
+        } else {
+          unbudgetedBox.innerHTML = '';
+        }
+
+        const overs = (totalUsage && totalUsage.level === 'over' ? [totalUsage] : [])
+          .concat(usages.filter(u => u.level === 'over'));
+        const alertBox = document.getElementById('over-alert');
+        if (overs.length > 0) {
+          alertBox.innerHTML = `<strong>${monthLabel(ym)}は予算を超えている項目があります</strong><ul>` +
+            overs.map(u => `<li>${esc(u.name)}: ${yen(u.actual - u.budget)} 超過（予算 ${yen(u.budget)}）</li>`).join('') +
+            '</ul>';
+          alertBox.style.display = 'block';
+        } else {
+          alertBox.style.display = 'none';
+        }
+      }
+
+      function usageRowHtml(u, label) {
+        const pct = Math.round(u.ratio * 100);
+        const remain = u.level === 'over'
+          ? `${yen(u.actual - u.budget)} 超過`
+          : `残り ${yen(u.budget - u.actual)}`;
+        return `
+          <div class="budget-row-head">
+            <span class="budget-name">${esc(label)}</span>
+            <span class="budget-figures"><strong>${yen(u.actual)}</strong> / ${yen(u.budget)}</span>
+          </div>
+          <div class="bar" role="progressbar" aria-label="${esc(label)}の予算消化率" aria-valuemin="0" aria-valuemax="100"
+               aria-valuenow="${Math.min(pct, 100)}" aria-valuetext="${pct}%">
+            <div class="bar-fill" style="width: ${Math.min(pct, 100)}%;"></div>
+          </div>
+          <div class="budget-row-foot">
+            <span class="budget-pct">${pct}%</span>
+            <span class="budget-remain">${remain}</span>
+          </div>`;
+      }
+
+      // 費目の追加で表を描き直しても、入力途中の金額が消えないよう下書きとして引き継ぐ
+      function collectDrafts() {
+        const drafts = {};
+        document.querySelectorAll('#budget-form input[data-category]').forEach(input => {
+          drafts[input.dataset.category] = input.value;
+        });
+        return drafts;
+      }
+
+      function renderForm(drafts) {
+        const ym = document.getElementById('month-select').value;
+        const eff = effectiveBudgets(ym);
+
+        document.getElementById('setting-note').innerText =
+          `入力した月予算は${monthLabel(ym)}から適用され、それより前の月の表示は変わりません。` +
+          '空欄または0で保存すると、その月から予算なしになります。';
+        document.getElementById('save-btn').innerText = `${monthLabel(ym)}から適用して保存`;
+
+        const tbody = document.getElementById('budget-form');
+        tbody.innerHTML = '';
+        expenseCategories().forEach(cat => {
+          const current = eff[cat];
+          const currentAmount = current ? current.amount : 0;
+          const applied = currentAmount > 0
+            ? `${yen(currentAmount)}<span class="applied-from">${monthLabel(current.startMonth)}から</span>`
+            : '<span style="color:#95a5a6;">なし</span>';
+          const next = nextChange(cat, ym);
+          const nextNote = next
+            ? `<span class="applied-from">${monthLabel(next.startMonth)}から${toAmount(next.amount) > 0 ? ' ' + yen(toAmount(next.amount)) + ' に' : '予算なしに'}変更予定</span>`
+            : '';
+          const value = drafts.hasOwnProperty(cat) ? drafts[cat] : (currentAmount > 0 ? String(currentAmount) : '');
+          const label = cat === TOTAL_KEY ? '全体（支出の合計）' : cat;
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${esc(label)}</td>
+            <td>${applied}${nextNote}</td>
+            <td class="text-right">
+              <input class="budget-input" type="text" inputmode="numeric" autocomplete="off"
+                     data-category="${esc(cat)}" value="${esc(value)}" aria-label="${esc(label)}の月予算">
+            </td>`;
+          tbody.appendChild(tr);
+          const input = tr.querySelector('input');
+          input.addEventListener('input', () => markInput(input, currentAmount));
+          markInput(input, currentAmount);
+        });
+      }
+
+      // スマホの日本語入力で全角数字や「50,000」「¥50000」と打たれても受け付けられるよう、数字以外を落としてから解釈する
+      function parseAmountInput(raw) {
+        const half = String(raw).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+        const cleaned = half.replace(/[\s,，¥￥円]/g, '');
+        if (cleaned === '') return 0;
+        if (!/^\d+$/.test(cleaned)) return NaN;
+        const n = Number(cleaned);
+        return n <= MAX_AMOUNT ? n : NaN;
+      }
+
+      function markInput(input, currentAmount) {
+        const amount = parseAmountInput(input.value);
+        input.classList.toggle('invalid', isNaN(amount));
+        input.classList.toggle('changed', !isNaN(amount) && amount !== currentAmount);
+      }
+
+      function addCategoryRow() {
+        const input = document.getElementById('new-category');
+        const name = input.value.trim();
+        if (!name) return;
+        if (name === TOTAL_KEY || /^[=+\-@]/.test(name)) {
+          setSaveStatus(`「${name}」は費目名として使えません。`, 'warn');
+          return;
+        }
+        if (expenseCategories().indexOf(name) !== -1) {
+          setSaveStatus(`「${name}」はすでに一覧にあります。`, 'warn');
+          return;
+        }
+        const drafts = collectDrafts();
+        extraCategories.push(name);
+        renderForm(drafts);
+        input.value = '';
+        const added = document.querySelector(`#budget-form input[data-category="${CSS.escape(name)}"]`);
+        if (added) added.focus();
+        setSaveStatus('', '');
+      }
+
+      function setSaveStatus(text, kind) {
+        const status = document.getElementById('save-status');
+        status.innerText = text;
+        status.className = 'save-status' + (kind ? ' status-' + kind : '');
+      }
+
+      function saveBudgetSettings() {
+        if (saving) return;
+        const ym = document.getElementById('month-select').value;
+        const eff = effectiveBudgets(ym);
+
+        const items = [];
+        const invalid = [];
+        document.querySelectorAll('#budget-form input[data-category]').forEach(input => {
+          const cat = input.dataset.category;
+          const amount = parseAmountInput(input.value);
+          if (isNaN(amount)) {
+            invalid.push(cat);
+            return;
+          }
+          const currentAmount = eff[cat] ? eff[cat].amount : 0;
+          if (amount !== currentAmount) items.push({ category: cat, amount });
+        });
+
+        if (invalid.length > 0) {
+          setSaveStatus(`${invalid.join('、')} の月予算は0〜1億円の数字で入力してください。`, 'warn');
+          return;
+        }
+        if (items.length === 0) {
+          setSaveStatus('変更された予算はありません。', '');
+          return;
+        }
+        // 過去の月から適用すると、すでに見た月の消化率が変わるため、そのときだけ確認する
+        if (ym < ymOf(new Date()) &&
+            !confirm(`${monthLabel(ym)}（過去の月）から適用します。${monthLabel(ym)}以降の予算と実績の表示が変わりますが、よろしいですか？`)) {
+          return;
+        }
+
+        saving = true;
+        const btn = document.getElementById('save-btn');
+        btn.disabled = true;
+        setSaveStatus('保存しています...', '');
+
+        google.script.run
+          .withSuccessHandler(function(rows) {
+            saving = false;
+            btn.disabled = false;
+            // GASエディタで budget.html だけ先に貼り替えると古い code.js が応答するため、形を確かめて原因を示す
+            if (!Array.isArray(rows)) {
+              setSaveStatus('サーバーからの応答形式が想定と違います。GASエディタの code.js が最新か、デプロイが更新されているか確認してください。', 'warn');
+              return;
+            }
+            budgets = rows;
+            extraCategories = [];
+            renderAll();
+            setSaveStatus(`${monthLabel(ym)}から適用する予算を保存しました。`, 'ok');
+          })
+          .withFailureHandler(function(err) {
+            saving = false;
+            btn.disabled = false;
+            setSaveStatus('保存できませんでした: ' + (err && err.message ? err.message : err), 'warn');
+          })
+          .saveBudgets({ startMonth: ym, items: items });
+      }
+    </script>
+  </body>
+</html>
